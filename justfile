@@ -1,11 +1,10 @@
-# Tell 'just' to run bash, source our setup script, then execute the recipe
 set shell := ["bash", "-c"]
 
-version := `grep VERSION lib/dry/cli/autocomplete/version.rb | awk '{print $3}' | tr -d '"' | tr -d '\n'`
+version := `gawk -F'"' '/VERSION/ { printf "%s", $2 }' lib/dry/cli/help/version.rb`
 rbenv   := 'eval "$(rbenv init - bash 2>/dev/null || true)"; bundle exec '
-repo    := 'git@github.com:kigster/dry-cli-autocomplete.git'
+repo    := 'git@github.com:kigster/dry-cli-help.git'
 
-gem_name := 'dry-cli-autocomplete'
+gem_name := 'dry-cli-help'
 gem_file := 'pkg/' + gem_name + '-' + version + '.gem'
 gem_url  := 'https://rubygems.org/gems/' + gem_name
 
@@ -17,91 +16,79 @@ recipes:
 install:
     bin/setup
 
+# Build the .gem into pkg/
 build: install
+    {{ rbenv }} rake build
 
-# Lint and reformat files
+# Lint Ruby
 lint:
     {{ rbenv }} rubocop
 
-# Lint and reformat files (-a) — pass -A as an argument
-format *args:
+# Autocorrect Ruby (pass -A for unsafe corrections) and format Markdown
+format *args: format-markdown
     {{ rbenv }} rubocop -a {{ args }}
-    /usr/bin/find . -name '*.md' -exec mdformat --wrap no {} \; -print
 
-# Run all the tests
-test *args: 
-    export ENVIRONMENT=test; {{ rbenv }} rspec {{args}}
+# Format every Markdown file
+format-markdown:
+    fd .md -X mdformat --wrap no
 
-# Run tests with coverage
+# Run all the tests; a full run enforces 100% line and branch coverage
+test *args:
+    {{ rbenv }} rspec {{ args }}
+
+# Run tests and measure coverage even for a partial run
 test-coverage *args:
-    export ENVIRONMENT=test; export COVERAGE=true; {{ rbenv }} rspec {{ args }}
+    export COVERAGE=true; {{ rbenv }} rspec {{ args }}
 
-ci: lint test-coverage 
+ci: lint test-coverage
 
 alias check-all := ci
 
+# Remove .DS_Store files and tmp/
 clean:
-    #!/usr/bin/env bash
-    @find . -name .DS_Store -delete -print || true
-    @rm -rf tmp/*
+    fd --hidden --no-ignore --type file --glob .DS_Store --exec rm -v
+    rm -rf tmp
 
-# Run all lefthook pre-commit hooks
+# Run all lefthook pre-commit hooks against every file
 lefthook:
-    {{ rbenv }} lefthook run pre-commit --all-files
+    lefthook run pre-commit --all-files
 
 # Print current gem version
 version:
     @echo "{{ version }}"
 
-# Clobber
-clobber: 
+# Remove every generated file
+clobber:
     {{ rbenv }} rake clobber
 
-# Generate documentation
-doc: 
-    #!/usr/bin/env bash
+# Generate YARD documentation
+doc:
     {{ rbenv }} rake doc
 
-# `gem push` rather than `rake release`: release also guards the tree, tags and
-# pushes git — which `just release` does deliberately and separately — and it
-# gives no way to pass a 2FA code, so it always stopped to prompt.
+# `gem push` rather than `rake release`: release also tags and pushes git,
+# which `just release` does separately, and it gives no way to pass a 2FA code.
 #
-# The code comes from 1Password unless one is passed in:
-#
-#   just publish            # read the code from 1Password
+#   just publish            # gem push prompts for the code if 2FA needs one
 #   just publish 123456     # use this code
 #
-# `just publish-all` in inquirex-tools passes one, because a TOTP is single-use:
-# four gems reading the same 30-second window would have the second push
-# rejected as a replay.
-#
-# Build the .gem and push it to RubyGems, non-interactively
+# Build the .gem and push it to RubyGems
 publish otp="": build
     #!/usr/bin/env bash
     set -euo pipefail
     eval "$(rbenv init - bash 2>/dev/null || true)"
 
-    mkdir -p pkg
-    gem build {{ gem_name }}.gemspec --output "{{ gem_file }}"
-
-    # `|| true` is load-bearing: under `set -e` a failed `op read` — not signed
-    # in to 1Password, item renamed, op not installed — would abort the recipe
-    # before the prompting fallback below could run.
     otp="{{ otp }}"
-
     if [[ -n "${otp}" ]]; then
       gem push "{{ gem_file }}" --otp "${otp}"
     else
-      echo "rubygems: no OTP available — gem push will prompt if 2FA is required."
       gem push "{{ gem_file }}"
     fi
 
-    # Only reachable when the push succeeded: `set -e` aborts the recipe on a
-    # non-zero `gem push`, so the page never opens for a release that failed.
+    # Only reachable when the push succeeded: `set -e` aborts on a failed push.
     echo "published {{ gem_name }} {{ version }} → {{ gem_url }}"
     open "{{ gem_url }}" 2>/dev/null || xdg-open "{{ gem_url }}" 2>/dev/null || true
 
-# Tag v{{ version }}, publish the GH release, & refresh the Homebrew tap.
+# Tag v{{ version }} and publish the GitHub release
 release:
     git fetch --tags
     git tag -f "v{{ version }}"

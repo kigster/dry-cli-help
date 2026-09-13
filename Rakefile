@@ -2,7 +2,6 @@
 
 require "bundler/gem_tasks"
 require "rspec/core/rake_task"
-require "timeout"
 require "yard"
 
 def shell(*args)
@@ -21,7 +20,7 @@ end
 task permissions: [:clean] do
   # One traversal replaces a six-level glob chain that printed "No such file
   # or directory" for every level this project does not have, skipped dotfiles
-  # entirely, and silently stopped at depth six. .git is pruned — its objects
+  # entirely, and silently stopped at depth six. .git is pruned: its objects
   # have no business being group-readable.
   shell("find . -path ./.git -prune -o -type d -exec chmod o+rx,g+rx {} + -o -type f -exec chmod o+r,g+r {} +")
 end
@@ -29,8 +28,8 @@ end
 task build: :permissions
 
 YARD::Rake::YardocTask.new(:doc) do |t|
-  t.files = %w[lib/**/*.rb exe/*.rb - README.md LICENSE.txt CHANGELOG.md SPECIFICATION.md]
-  t.options.unshift("--title", '"FlowEngine — DSL + AST for buildiong complex flows in Ruby."')
+  t.files = %w[lib/**/*.rb - README.md LICENSE.txt CHANGELOG.md SPECIFICATION.md]
+  t.options.unshift("--title", '"dry-cli-help: configurable help screens for dry-cli"')
   t.after = -> { exec("open doc/index.html") } if RUBY_PLATFORM =~ /darwin/
 end
 
