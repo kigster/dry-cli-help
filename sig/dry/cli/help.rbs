@@ -1,0 +1,88 @@
+module Dry
+  class CLI
+    module Help
+      VERSION: String
+
+      def self.configure: () { (Configuration) -> void } -> Configuration
+      def self.config: () -> Configuration
+      def self.reset!: () -> void
+      def self.config_for: (untyped registry) -> Configuration
+
+      module Colors
+        STYLES: Array[Symbol]
+        SETTINGS: Array[bool | Symbol]
+
+        def self.enabled: () -> (bool | Symbol)
+        def self.enabled=: (bool | Symbol) -> void
+        def self.pastel: () -> untyped
+        def self.enabled_for?: (bool | Symbol setting, untyped io) -> bool
+
+        def pastel: () -> untyped
+      end
+
+      module Terminal
+        FALLBACK_WIDTH: Integer
+
+        def self.width: (?env: Hash[String, String], ?console: untyped) -> Integer
+      end
+
+      module Text
+        def self.lines: (String? text, Integer? width) -> Array[String]
+      end
+
+      class Configuration
+        SECTIONS: Array[Symbol]
+        HEADINGS: Hash[Symbol, String]
+        STYLES: Hash[Symbol, Array[Symbol]]
+        DEFAULTS: Hash[Symbol, untyped]
+        MIN_WIDTH: Integer
+
+        def initialize: (?Hash[Symbol, untyped] values) -> void
+
+        def title: (?String? value) -> String?
+        def title=: (String?) -> void
+        def description: (?String? value) -> String?
+        def description=: (String?) -> void
+        def epilogue: (?String? value) -> String?
+        def epilogue=: (String?) -> void
+        def color: (?(bool | Symbol) value) -> (bool | Symbol)
+        def color=: (bool | Symbol) -> void
+        def wrap: (?bool value) -> bool
+        def wrap=: (bool) -> void
+        def width: (?(Integer | Symbol) value) -> (Integer | Symbol)
+        def width=: (Integer | Symbol) -> void
+        def margin: (?Integer value) -> Integer
+        def margin=: (Integer) -> void
+        def exit_code_without_arguments: (?Integer value) -> Integer
+        def exit_code_without_arguments=: (Integer) -> void
+        def banner_on_subcommands: (?bool value) -> bool
+        def banner_on_subcommands=: (bool) -> void
+        def heading_case: (?Symbol value) -> Symbol
+        def heading_case=: (Symbol) -> void
+        def command_order: (?Symbol value) -> Symbol
+        def command_order=: (Symbol) -> void
+
+        def heading: (Symbol section, String text) -> String
+        def headings: () -> Hash[Symbol, String]
+        def style: (Symbol element, *Symbol names) -> Array[Symbol]
+        def styles: () -> Hash[Symbol, Array[Symbol]]
+        def group: (String name, *(String | Array[String]) commands) -> Array[[String, Array[String]]]
+        def groups: () -> Array[[String, Array[String]]]
+        def sections: (*Symbol names) -> Array[Symbol]
+        def sections=: (Array[Symbol]) -> void
+        def hide: (*Symbol names) -> Array[Symbol]
+        def hidden: () -> Array[Symbol]
+        def visible_sections: () -> Array[Symbol]
+        def wrap_width: (Integer terminal_width) -> Integer?
+        def merge: (Configuration other) -> Configuration
+      end
+
+      module Integration
+        module RegistryMethods
+          def help: () ?{ (Configuration) -> void } -> Configuration
+          def help_config: () -> Configuration?
+        end
+      end
+    end
+  end
+end

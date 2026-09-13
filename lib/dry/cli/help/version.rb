@@ -8,8 +8,8 @@ module Dry
   # file at build time when the dependency may not be installed. dry-cli's CLI
   # inherits from Object, so an empty reopening is compatible either way.
   class CLI
-    module Autocomplete
-      VERSION = "0.1.3"
+    module Help
+      VERSION = "0.1.0"
     end
   end
 end

@@ -3,9 +3,9 @@
 require "dry/cli"
 
 module Fixtures
-  # A small CLI, authored for this project's own suite. Matches the walk
-  # example in .plans/001.00-*/plan.md §3: version, deploy, and a db group
-  # with both a bare command and a migrate subcommand.
+  # A small CLI, authored for this project's own suite: version, deploy, a
+  # hidden command, and a db group with both a command of its own and a
+  # migrate subcommand.
   module SimpleCLI
     extend Dry::CLI::Registry
 
