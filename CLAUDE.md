@@ -4,11 +4,11 @@ Guidance for Claude Code (claude.ai/code) working in this repository.
 
 ## What this is
 
-A Ruby gem that generates static shell completion scripts for any `Dry::CLI` application. A host registers one command; `mycli completion bash` prints a script; the user evaluates it from a shell profile.
+A Ruby gem that changes the help screens every `Dry::CLI` prints: a title and description, an epilogue, command groups, section ordering and hiding, configurable headings, terminal-width wrapping and ANSI colors. It owns what a user reads before a command runs, and nothing after.
 
-**Read `SPECIFICATION.md` first.** It carries the design decisions, the measurements behind them, and the acceptance criteria. This file covers how to work in the repository; that one covers what to build and why.
+**Read `SPECIFICATION.md` first.** It carries the settings, the section and layout rules, and why the integration hooks where it does. This file covers how to work in the repository.
 
-The gem is a skeleton from `bundle gem` with no implementation yet. Nothing in `lib/` does anything.
+The repository began as a copy of `dry-cli-autocomplete`. The completion generator is gone; if you find a reference to emitters, bash or zsh scripts, it is stale.
 
 ## Environment
 
@@ -19,70 +19,60 @@ eval "$(rbenv init -)" && bundle exec rspec
 ```
 
 ```bash
-bundle install
-bundle exec rspec              # the suite
-bundle exec rubocop            # the linter
-bundle exec rubocop -a         # autocorrect
-bundle exec rake               # both, and the default task
-bin/console                    # IRB with the gem loaded
+just install     # bundle install
+just test        # the suite; a full run fails below 100% line or branch coverage
+just lint        # rubocop
+just ci          # both
+just lefthook    # every pre-commit hook against every file
+bin/console      # IRB with the gem loaded
 ```
 
-The gemspec sets `required_ruby_version >= 3.2.0` and `.rubocop.yml` sets `TargetRubyVersion: 3.2`. Keep the two in step: raising one without the other produces a linter that permits syntax the gemspec claims to support, or the reverse.
+The gemspec sets `required_ruby_version >= 4.0` and `.rubocop.yml` sets `TargetRubyVersion: 4.0`. Keep the two in step.
 
 ## The trap that has already bitten this repository once
 
-`bundle gem dry-cli-autocomplete` generates `module Dry; module Cli`. **dry-cli declares `Dry::CLI`, and it is a class, not a module.** Reopening a class as a module raises `TypeError` the moment both are loaded, and the error names neither file usefully.
-
-Six files were generated wrong and have been fixed. If you add a file under `lib/dry/cli/`, nest it as:
+`bundle gem` generates `module Dry; module Cli`. **dry-cli declares `Dry::CLI`, and it is a class, not a module.** Reopening a class as a module raises `TypeError` the moment both are loaded. Nest every file under `lib/dry/cli/` as:
 
 ```ruby
 module Dry
-  class CLI          # class, and CLI is an acronym
-    module Autocomplete
+  class CLI
+    module Help
 ```
 
-`lib/dry/cli/autocomplete/version.rb` deliberately does **not** `require "dry/cli"`, because the gemspec loads it at build time when the dependency may not be installed. It reopens `class CLI` on its own. dry-cli's `CLI` inherits from `Object`, so an empty reopening is compatible whichever loads first.
+`lib/dry/cli/help/version.rb` deliberately does **not** `require "dry/cli"`, because the gemspec loads it at build time when the dependency may not be installed.
 
-For deriving names at runtime, use `dry-inflector`. `Dry::Inflector.new { |i| i.acronym("CLI") }` handles both the casing above and the `underscore` needed for shell function identifiers. `Dry::CLI::Inflector` ships with dry-cli but only has `dasherize` and is marked `@api private`; do not depend on it.
+Inside `module Dry`, an unqualified constant resolves there first: a bare `Struct` becomes `Dry::Struct` in any host that loads dry-struct. Write `::Data`, `::Pastel`, and so on.
 
 ## Architecture
 
-Four pieces, and the boundary between the first and the rest is load-bearing.
+| File                                  | Role                                                                                                          |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `lib/dry/cli/help.rb`                 | Entry point: `configure`, `config`, `config_for`, and the two lines that install the gem                      |
+| `lib/dry/cli/help/integration.rb`     | The only code that touches dry-cli: overrides `Dry::CLI#help` and `#spell_checker`, adds `help` to registries |
+| `lib/dry/cli/help/configuration.rb`   | Every setting, its validation, the DSL, and `merge` of process-wide and registry settings                     |
+| `lib/dry/cli/help/screens/listing.rb` | Top-level and group help: `mycli`, `mycli -h`, `mycli db`                                                     |
+| `lib/dry/cli/help/screens/command.rb` | One command's help: `mycli deploy -h`                                                                         |
+| `lib/dry/cli/help/formatter.rb`       | Headings, paragraphs, aligned definition lists, painting                                                      |
+| `lib/dry/cli/help/text.rb`            | Paragraph reflow and word wrap                                                                                |
+| `lib/dry/cli/help/terminal.rb`        | Terminal width                                                                                                |
+| `lib/dry/cli/help/colors.rb`          | The public `Colors` module                                                                                    |
 
-| File                                        | Role                                                                                                                                  |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `lib/dry/cli/autocomplete/command.rb`       | The shim a host registers. Defines the command class and nothing else. `require`s the generator **inside `#call`**, never at the top. |
-| `lib/dry/cli/autocomplete/spec_builder.rb`  | Walks a registry through public API and returns a shell-agnostic description of every completion.                                     |
-| `lib/dry/cli/autocomplete/emitters/bash.rb` | Turns that description into a `complete -F` script.                                                                                   |
-| `lib/dry/cli/autocomplete/emitters/zsh.rb`  | Turns it into a native `#compdef` script with per-option descriptions.                                                                |
+Rules that hold this shape together:
 
-Two rules hold this shape together, both measured rather than assumed:
-
-- **The command shim loads no emitter.** A host pays nothing at boot for a command run once per shell. `SPECIFICATION.md` §2.4.
-- **The spec builder touches only the registry.** It must be safe to run at shell startup, because it runs at every shell startup. `SPECIFICATION.md` §2.2.
-
-The emitters take the same description and share no code. A fourth shell should be a new emitter class, never a branch inside an existing one.
+- **Only `integration.rb` knows how dry-cli dispatches.** Screens receive a command or a lookup result and render; they never print or exit.
+- **Wrap before painting.** Escape codes must never count toward a line's length.
+- **A `Configuration` stores only what was set on it.** Defaults live in constants, which is what lets `merge` lay a registry over the process-wide settings.
 
 ## Conventions
 
-- **The generator is not a hot path.** It runs in 0.067ms against a 27-command registry. Do not optimise it, do not add native extensions, and do not cache anything. The reasoning is in `SPECIFICATION.md` §2.3.
-- **Read a registry through its methods, not its ivars.** `registry.get(path)` returns a result exposing `command`, `children` and `names`. `instance_variable_get(:@node)` is what the gem this one replaces does, and it will break on a dry-cli release. Do not mistake this for a public API: in 1.4.1 `Registry#get`, all of `CommandRegistry`, every `LookupResult` reader and every `Node` reader carry `@api private`. There is no public way to enumerate a registry, so an upgrade can break the walk and the fixture suite is what catches it.
-- **Test against registries this project did not write.** A generator tested against one CLI encodes that CLI's shape. `SPECIFICATION.md` §5.
-- **Validate generated shell with the shell.** `bash -n` and `zsh -n` parse without executing. A regex over generated output proves nothing about whether it runs.
-- **Commit messages**: imperative mood, 50-character subject, no full stop. A body only where the change needs explaining, saying what and why.
-- **Writing prose here**: no em dashes, active voice, plain words. Say what a thing does, not how it feels. If a sentence could appear unchanged in another project's README, it says nothing about this one and should go.
-
-## Repository layout
-
-| Path                                  | What it is                                                                                                        |
-| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `SPECIFICATION.md`                    | What to build, why, and what "done" means                                                                         |
-| `lib/dry/cli/autocomplete.rb`         | Entry point                                                                                                       |
-| `lib/dry/cli/autocomplete/version.rb` | Version, loaded standalone by the gemspec                                                                         |
-| `sig/`                                | RBS signatures, generated by `bundle gem` and not yet real                                                        |
-| `exe/dry-cli-autocomplete`            | Generated by `bundle gem`. **Probably should be deleted**: this is a library, and a host provides the executable. |
-| `.github/workflows/main.yml`          | CI                                                                                                                |
+- **Read dry-cli through readers, not ivars.** Everything this gem reads is `@api private` in dry-cli 1.4.1. `spec/dry/cli/help/dry_cli_contract_spec.rb` lists all of it; add to that file whenever you read something new.
+- **Every example resets global state.** `spec/spec_helper.rb` pins `COLUMNS=80`, clears `NO_COLOR`, sets `$PROGRAM_NAME` to `mycli`, and resets `Help.config` and `Colors.enabled` after each example. Build a registry per example with the `registry` helper rather than calling `help` on a shared fixture.
+- **Test through `Dry::CLI#call`.** `run_cli` in `spec/support/cli_helpers.rb` captures stdout, stderr and the exit status. Expected screens are written out in full.
+- **Test against registries this project did not write.** `spec/support/fixtures/` holds several shapes.
+- **Commit messages**: imperative mood, 50-character subject, no full stop, no agent attribution.
+- **Writing prose here**: no em dashes, active voice, plain words. Run `just format-markdown` after editing Markdown.
 
 ## Before the first release
 
-The gemspec still carries `bundle gem` TODOs that will refuse to build: `spec.summary`, `spec.description`, and `spec.metadata["allowed_push_host"]`. The `dry-` prefix and the `Dry::CLI::Autocomplete` namespace imply an affiliation with dry-rb that does not exist, so say so in the README, or ask them first.
+- `origin` still points at `kigster/dry-cli-autocomplete`. Point it at a `dry-cli-help` repository before pushing anything.
+- The `dry-` prefix implies an affiliation with dry-rb that does not exist. The README says so.

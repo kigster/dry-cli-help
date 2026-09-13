@@ -1,179 +1,247 @@
-# dry-cli-autocomplete
+# dry-cli-help
 
-[![Ruby](https://github.com/kigster/dry-cli-autocomplete/actions/workflows/main.yml/badge.svg)](https://github.com/kigster/dry-cli-autocomplete/actions/workflows/main.yml) ![Coverage](docs/img/badge.svg)
+[![Ruby](https://github.com/kigster/dry-cli-help/actions/workflows/main.yml/badge.svg)](https://github.com/kigster/dry-cli-help/actions/workflows/main.yml) ![Coverage](docs/img/badge.svg)
 
-Shell completion for [dry-cli](https://github.com/dry-rb/dry-cli) applications, with no Ruby in the TAB path.
+Configurable, wrapped, colored help screens for [dry-cli](https://github.com/dry-rb/dry-cli) applications.
 
 > [!NOTE]
-> For the specification of this gem see [SPECIFICATION](SPECIFICATION.md)
+> The design, the settings and every decision behind them are in [SPECIFICATION.md](SPECIFICATION.md).
 
-Your CLI knows its own commands, options, aliases and enum values. The shell does not. This gem walks your registry once, prints a bash or zsh script, and you source it from your profile. Pressing TAB then spawns nothing and costs nothing, because every completion the script will ever offer is already inside it.
+dry-cli prints help as it finds it: no title, no description of the program, no color, one line per description however long, and commands sorted alphabetically. This gem keeps the command structure you already declared and changes only what the user reads before a command runs. Progress bars, spinners and error panels belong in `dry-cli-ui`.
 
-```bash
-mycli completion bash > /usr/local/etc/bash_completion.d/mycli
+## Before and after
+
+`taxlibris compile -h` with dry-cli alone:
+
+```text
+Command:
+  taxlibris compile
+
+Usage:
+  taxlibris compile RULES [OUTPUT]
+
+Description:
+  Compile tax rules
+
+Arguments:
+  RULES                             # REQUIRED Rule file to compile
+  OUTPUT                            # Where to write the compiled rules
+
+Options:
+  --format=VALUE, -f VALUE          # Output format: (json/yaml), default: "json"
+  --[no-]strict                     # Treat warnings as errors
+  --help, -h                        # Print this help
 ```
 
-## The problem
+With `require "dry/cli/help"`:
 
-A dry-cli app with nested subcommands gives the shell nothing to work with. `mycli db <TAB>` completes filenames from the current directory, which is never what you wanted.
+```text
+USAGE
+  taxlibris compile RULES [OUTPUT] [OPTIONS]
 
-[`rngtng/dry-cli-completion`](https://github.com/rngtng/dry-cli-completion) already solves part of this, and it is worth reading before you reach for this gem. It falls short in four ways, and each one is an acceptance criterion here.
+DESCRIPTION
+  Compile tax rules
 
-**A group that has both a command and children loses the children.** Register an overview command at a group's bare name so `mycli db --help` can explain the group, and its subcommands stop completing:
+ARGUMENTS
+  RULES               Rule file to compile (required)
+  OUTPUT              Where to write the compiled rules
 
-```ruby
-register "db", DbStatus         # the node now has a command
-register "db migrate", Migrate  # ...and children, which never get walked
+OPTIONS
+  -f, --format=VALUE  Output format (one of: json, yaml; default: "json")
+  --[no-]strict       Treat warnings as errors
+  -h, --help          Show help
 ```
 
-`mycli db <TAB>` then offers `--help` and nothing else. This is what any app does when it wants group-level help.
-
-**File arguments vanish.** `Input#input_line` returns early on `<file>`, so a command with a path argument produces no `compgen -f`, no `-o default`, no `_filedir`. Completing a path is the single most common thing a user wants from a CLI, and it is the one thing that does not work.
-
-**The entry point is not free.** `command.rb` opens with a require that pulls the generator, which pulls `completely`. Every host pays for that at boot. Measured: `require "dry/cli"` costs 160ms, and adding the completion gem takes it to 190ms. Thirty milliseconds on every single invocation, for a command that runs once per shell.
-
-**zsh is a bashcompinit shim.** It emits `autoload -Uz +X bashcompinit && bashcompinit` followed by bash. That works, but zsh users get no per-option descriptions and none of the behaviour they expect from a native completion.
-
-There is a dependency argument too. `completely` pulls `colsole`, `docopt_ng` and `mister_bin`, and `mister_bin` is itself a CLI framework. That is four gems, one of them a second CLI framework, to print a shell script. This gem depends on `dry-cli` and `dry-inflector`, and nothing else.
-
-## What it generates
-
-Given this registry:
-
-```ruby
-register "version", Version
-register "deploy", Deploy
-register "db", DbStatus do |prefix|
-  prefix.register "migrate", DbMigrate
-end
-register "secret", Secret, hidden: true
-```
-
-`mycli completion bash` prints a `complete -F` function that dispatches on the command path:
-
-```bash
-_mycli_completions() {
-  # ...walks COMP_WORDS to find the current command path...
-  words=""
-  case "$path" in
-    "") words="version deploy db" ;;
-    "version") words="--format" ;;
-    "deploy") words="--force -f" ;;
-    "db") words="migrate --verbose" ;;
-  esac
-
-  COMPREPLY=($(compgen -W "$words" -- "$cur"))
-  case "$path" in
-    "db migrate") COMPREPLY+=($(compgen -f -- "$cur")) ;;
-  esac
-}
-complete -F _mycli_completions mycli
-```
-
-Read what that output proves. `db` offers `migrate` alongside its own `--verbose`, so a group with both a command and children keeps both. `db migrate` gets real file completion. `secret` is absent, because hidden commands stay hidden. The `-f` alias on `deploy` is there because you declared it.
-
-`mycli completion zsh` prints a native `#compdef` script built on `_arguments` and `_describe`, carrying each option's `desc` as help text next to it.
-
-Enum values declared on an option or argument come through at no cost:
-
-```ruby
-option :format, values: %w[json yaml table]    # completes json yaml table
-argument :component, values: %w[major minor]   # completes major minor
-```
+Headings are bold and yellow, commands green, options and arguments cyan, and every description wraps to the terminal with a hanging indent.
 
 ## Installation
 
 ```bash
-gem install dry-cli-autocomplete
+gem install dry-cli-help
 ```
 
-Or add it to your `Gemfile`.
+Or add `gem "dry-cli-help"` to your `Gemfile`.
 
-Then register the command in your CLI. Require the command file, not the gem: it pulls in no emitter and no generator, so a host pays nothing at boot for a command that runs once per shell.
+## Usage
+
+Require it after dry-cli. That alone changes every help screen in the process.
 
 ```ruby
-require "dry/cli/autocomplete/command"
+require "dry/cli"
+require "dry/cli/help"
+```
 
-module MyCLI
-  extend Dry::CLI::Registry
+Describe the program in the registry:
 
-  register "version", Version
-  register "deploy", Deploy
-  register "completion", Dry::CLI::Autocomplete::Command[MyCLI]
+```ruby
+module Taxlibris
+  module CLI
+    extend Dry::CLI::Registry
+
+    help do
+      title "Taxlibris"
+
+      description <<~TEXT
+        Compile, validate, and evaluate tax rules.
+      TEXT
+
+      epilogue "Documentation: https://example.com/taxlibris"
+
+      color :auto
+      width :terminal
+      wrap true
+    end
+
+    register "compile", Compile
+    register "validate", Validate
+    register "evaluate", Evaluate
+    register "version", Version, aliases: ["--version", "-v"]
+  end
 end
 ```
 
-That require pulls in the command class and nothing else. No emitter loads until someone actually runs `mycli completion`.
+`taxlibris -h` then prints:
 
-Then have your users write the script once and source it. For bash:
+```text
+Taxlibris
 
-```bash
-mycli completion bash > /usr/local/etc/bash_completion.d/mycli
+Compile, validate, and evaluate tax rules.
+
+USAGE
+  taxlibris COMMAND [OPTIONS]
+
+COMMANDS
+  compile        Compile tax rules
+  validate       Validate the rule corpus
+  evaluate       Evaluate a tax return
+  version        Show version
+
+OPTIONS
+  -h, --help     Show help
+  -v, --version  Show version
+
+Documentation: https://example.com/taxlibris
 ```
 
-For zsh, put it anywhere on your `$fpath`:
+A command reachable as `--version` lists under Options by its dashed names.
 
-```bash
-mycli completion zsh > "${fpath[1]}/_mycli"
+Settings for the whole process go through `configure`. A registry's `help` block overrides them:
+
+```ruby
+Dry::CLI::Help.configure do |config|
+  config.width = 100
+  config.color = false
+end
 ```
 
-Sourcing it from `.zshrc` works too, if you would rather not manage a file:
+A `help` block that takes an argument receives the configuration instead, so `help { |h| h.title = "Taxlibris" }` works too.
 
-```bash
-eval "$(mycli completion zsh)"
+## Settings
+
+| Setting                       | Values                            | Default         |
+| ----------------------------- | --------------------------------- | --------------- |
+| `title`                       | String                            | none            |
+| `description`                 | String                            | none            |
+| `epilogue`                    | String                            | none            |
+| `color`                       | `true`, `false`, `:auto`          | `:auto`         |
+| `wrap`                        | `true`, `false`                   | `true`          |
+| `width`                       | `:terminal`, Integer              | `:terminal`     |
+| `margin`                      | Integer                           | `0`             |
+| `exit_code_without_arguments` | 0 to 255                          | `1`             |
+| `banner_on_subcommands`       | `true`, `false`                   | `false`         |
+| `heading_case`                | `:upcase`, `:capitalize`, `:none` | `:upcase`       |
+| `command_order`               | `:registration`, `:alphabetical`  | `:registration` |
+
+`color :auto` colors a terminal and honors [`NO_COLOR`](https://no-color.org). `width :terminal` reads `COLUMNS`, then the console, then falls back to 80, and `margin` keeps columns free at the right edge.
+
+Running the program with no command prints the top-level help and exits 1, as dry-cli does. `exit_code_without_arguments 0` prints it to stdout and exits 0 instead. `-h` and `--help` always exit 0.
+
+### Headings, sections and groups
+
+```ruby
+help do
+  heading :commands, "Available commands"
+  heading_case :capitalize
+
+  group "Rules", "compile", "validate"
+  group "Returns", "evaluate"
+
+  hide :examples
+  sections :banner, :usage, :commands, :options, :epilogue
+end
 ```
 
-The script tells the two apart and registers itself either way.
+- `heading` replaces one section's heading text.
+- `group` lists commands under a heading of their own, in the order given. Ungrouped commands stay under Commands. A group inside a group names the full path, such as `"db migrate"`.
+- `sections` sets the order; a section left out is hidden. `hide` hides sections without restating the order.
 
-Regenerate it when you add or rename commands. Nothing watches for changes, by design.
+The sections are `banner`, `usage`, `description`, `commands`, `subcommands`, `arguments`, `options`, `examples` and `epilogue`. Each screen prints the ones that apply to it.
 
-## Why the script is static
+### Styles
 
-Cobra and clap route every TAB press to a hidden `__complete` subcommand. That is the right call for a Go or Rust binary that starts in 10ms. It is the wrong call here.
+```ruby
+help do
+  style :heading, :bold, :bright_blue
+  style :comment            # no styles: print it plain
+end
+```
 
-| Measurement                                               |           Time |
-| --------------------------------------------------------- | -------------: |
-| Bare `ruby -e ''`                                         |          100ms |
-| `require "dry/cli"`                                       |          160ms |
-| `require "dry/cli"` + `dry-cli-completion` + `completely` |          190ms |
-| `require "tax_engine"` (a heavy host)                     |          520ms |
-| First touch of that host's data store                     |         +239ms |
-| **Registry walk and full completion spec build**          |    **0.067ms** |
-| Generated bash script for 27 commands                     | 257 lines, 9KB |
+The styled elements are `title`, `heading`, `command`, `argument`, `option` and `comment`, the last being the part of an example after the first `#` surrounded by spaces, as in `"rules.form # compile one file"`.
 
-Half a second of dead air per keystroke is unusable, and no amount of lazy loading gets under the host's own require cost. So there is no `__complete` command. It was considered, costed at roughly 90 lines, and rejected on that table.
+### The Colors module
 
-The same table explains two other decisions. The generator will not be optimised, because at 0.067ms it is 0.01% of the cheapest possible invocation and all the time goes to interpreter startup. Native extensions were rejected for the same reason, plus they would put a compiled artifact in every consumer's dependency chain.
+Every style is also available to your own code:
 
-## What it will not do
+```ruby
+class Deploy < Dry::CLI::Command
+  include Dry::CLI::Help::Colors
 
-**Values your host has to compute.** The walk touches only objects dry-cli already holds. The moment an option's `values:` calls into your data layer, that cost lands at class-definition time on *every* invocation, not just completion. In the profiled host that meant 239ms of YAML parsing added to shell startup. Declare the values on the option, where dry-cli validates against them anyway and the generator sees them free.
+  def call(**)
+    puts green("Deployed.")
+    puts red.bold("Rolled back.")
+  end
+end
+```
 
-**fish, PowerShell, nushell.** Worth adding later. The emitter interface is built so a fourth shell is a new class rather than a new branch in an existing one.
+The methods are the eight colors `black red green yellow blue magenta cyan white`, their `bright_` forms, the `on_` and `on_bright_` backgrounds, and `clear bold dim italic underline inverse hidden strikethrough`. `Dry::CLI::Help::Colors.enabled = false` turns them all off.
 
-**Watch your registry.** Regenerating is your call, in your release process.
+## How it works
+
+The gem prepends one module to `Dry::CLI`, overriding the two private methods dry-cli prints help from. It does not replace `Dry::CLI::Banner` or `Dry::CLI::Usage`.
+
+```mermaid
+flowchart LR
+  argv[ARGV] --> call["Dry::CLI#call"]
+  call -->|"command found, -h given"| help["#help"]
+  call -->|"no command, a group, -h at a level, a typo"| spell["#spell_checker"]
+  help --> command[Screens::Command]
+  spell --> listing[Screens::Listing]
+  command --> formatter[Formatter]
+  listing --> formatter
+  config["Help.configure + registry help block"] --> formatter
+  formatter --> out[stdout or stderr]
+```
+
+Both methods are `@api private` in dry-cli. `spec/dry/cli/help/dry_cli_contract_spec.rb` asserts every internal the gem reads, so a dry-cli release that moves one fails this suite, naming what moved.
 
 ## Development
 
-Ruby 3.2 or newer. This repository uses rbenv, so activate it first:
-
 ```bash
-eval "$(rbenv init -)"
-bundle install
-bundle exec rspec       # the suite
-bundle exec rubocop     # the linter
-bundle exec rake        # both
-bin/console             # IRB with the gem loaded
+just install     # bundle install
+just test        # the suite; a full run enforces 100% line and branch coverage
+just lint        # rubocop
+just ci          # both
+just lefthook    # every pre-commit hook against every file
+just format      # rubocop -a, then mdformat --wrap no on every Markdown file
+bin/console      # IRB with the gem loaded
 ```
-
-Two conventions in the suite are worth knowing before you add to it. Fixtures include registries this project did not write, because a generator tested against one CLI quietly encodes that CLI's shape. And generated scripts are validated by the shells themselves, with `bash -n` and `zsh -n` parsing without executing, since a regex over the output proves nothing about whether it runs.
 
 ## Contributing
 
-Bug reports and pull requests are welcome at <https://github.com/kigster/dry-cli-autocomplete>.
+Bug reports and pull requests are welcome at <https://github.com/kigster/dry-cli-help>.
 
 > [!WARNING]
-> A quick note on the name. The `dry-` prefix and the `Dry::CLI::Autocomplete` namespace do not imply endorsement by `dry-rb`. This is an independent gem that extends theirs. I hope this functionality will make it into `dry-cli` one day, however.
+> The `dry-` prefix and the `Dry::CLI::Help` namespace do not imply endorsement by dry-rb. This is an independent gem that extends theirs.
 
 ## License
 
