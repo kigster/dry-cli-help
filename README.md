@@ -213,6 +213,7 @@ The gem prepends one module to `Dry::CLI`, overriding the two private methods dr
 ---
 config:
   layout: elk
+  theme: forest
 ---
 flowchart TB
     argv["ARGV"] --> cli_call["Dry::CLI#call"]
