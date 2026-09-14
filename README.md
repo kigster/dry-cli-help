@@ -139,7 +139,7 @@ A `help` block that takes an argument receives the configuration instead, so `he
 ## Settings
 
 | Setting                       | Values                            | Default         |
-|*------------------------------|*----------------------------------| ---------------*|
+| ------------------------------| --------------------------------- | --------------- |
 | `title`                       | String                            | none            |
 | `description`                 | String                            | none            |
 | `epilogue`                    | String                            | none            |
