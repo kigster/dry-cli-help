@@ -139,7 +139,7 @@ A `help` block that takes an argument receives the configuration instead, so `he
 ## Settings
 
 | Setting                       | Values                            | Default         |
-| ----------------------------- | --------------------------------- | --------------- |
+|*------------------------------|*----------------------------------| ---------------*|
 | `title`                       | String                            | none            |
 | `description`                 | String                            | none            |
 | `epilogue`                    | String                            | none            |
@@ -210,16 +210,25 @@ The methods are the eight colors `black red green yellow blue magenta cyan white
 The gem prepends one module to `Dry::CLI`, overriding the two private methods dry-cli prints help from. It does not replace `Dry::CLI::Banner` or `Dry::CLI::Usage`.
 
 ```mermaid
-flowchart LR
-  argv[ARGV] --> call["Dry::CLI#call"]
-  call -->|"command found, -h given"| help["#help"]
-  call -->|"no command, a group, -h at a level, a typo"| spell["#spell_checker"]
-  help --> command[Screens::Command]
-  spell --> listing[Screens::Listing]
-  command --> formatter[Formatter]
-  listing --> formatter
-  config["Help.configure + registry help block"] --> formatter
-  formatter --> out[stdout or stderr]
+---
+config:
+  layout: elk
+---
+flowchart TB
+    argv["ARGV"] --> cli_call["Dry::CLI#call"]
+
+    cli_call -->|"command found, --help given"| help_method["#help"]
+    cli_call -->|"no command, a group, -h at a level, a typo"| spell_checker["#spell_checker"]
+
+    help_method --> command_screen["Screens::Command"]
+    spell_checker --> listing_screen["Screens::Listing"]
+
+    command_screen --> formatter["Formatter"]
+    listing_screen --> formatter
+
+    help_config["Help.configure + registry help block"] --> formatter
+
+    formatter --> output["stdout or stderr"]
 ```
 
 Both methods are `@api private` in dry-cli. `spec/dry/cli/help/dry_cli_contract_spec.rb` asserts every internal the gem reads, so a dry-cli release that moves one fails this suite, naming what moved.
