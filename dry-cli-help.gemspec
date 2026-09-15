@@ -26,7 +26,7 @@ Gem::Specification.new do |spec|
     ls.readlines("\x0", chomp: true).reject do |f|
       (f == gemspec) ||
         f.start_with?(*%w[bin/ Gemfile .gitignore .rspec spec/ .github/ .rubocop.yml .plans/
-                          .secrets.baseline justfile lefthook.yml docs/ CLAUDE.md])
+                          .secrets.baseline justfile lefthook.yml docs/ examples/ CLAUDE.md])
     end
   end
   spec.require_paths = ["lib"]

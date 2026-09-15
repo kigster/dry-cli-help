@@ -1,0 +1,99 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# deploy: ships an application and manages its database.
+#
+#   examples/deploy -h                           # dry-cli's own help
+#   examples/deploy -h --with-dry-cli-help       # the same, through dry-cli-help
+#   examples/deploy ship -h --with-dry-cli-help  # banner above command help
+#   examples/deploy --with-dry-cli-help          # no command: help on stdout, exit 0
+
+ENV["BUNDLE_GEMFILE"] ||= File.expand_path("../Gemfile", __dir__)
+require "bundler/setup"
+require "dry/cli"
+
+# The one configuration block. Without --with-dry-cli-help or -w, dry-cli prints its own help.
+if [ARGV.delete("--with-dry-cli-help"), ARGV.delete("-w")].any?
+  require "dry/cli/help"
+
+  Dry::CLI::Help.configure do
+    title "deploy"
+    description "Ship the application to an environment, and keep its database in step."
+    epilogue "Run `deploy status` before and after every release."
+
+    width 72
+    banner_on_subcommands true
+    exit_code_without_arguments 0
+    command_order :alphabetical
+
+    heading :usage, "Synopsis"
+    sections :banner, :usage, :description, :arguments, :options, :commands, :subcommands,
+             :examples, :epilogue
+
+    styles do
+      title :bold, :underline
+      heading :bold, :blue, case: :as_is
+      example :yellow
+      example_comment :italic
+    end
+  end
+end
+
+module Deploy
+  extend Dry::CLI::Registry
+
+  ENVIRONMENTS = %w[staging production].freeze
+
+  class Ship < Dry::CLI::Command
+    desc "Build a release from a branch and roll it out to an environment, one host at a time, " \
+         "stopping at the first host that fails its health check"
+
+    argument :environment, values: ENVIRONMENTS, required: true, desc: "Where to deploy"
+    option :branch, default: "main", aliases: ["-b"], desc: "Branch to build the release from"
+    option :only, type: :array, desc: "Deploy only these roles, such as web,worker"
+    option :dry_run, type: :boolean, default: false, aliases: ["-n"],
+                     desc: "Print every step without running it"
+
+    example [
+      "staging # the main branch to staging",
+      "production -b release-42 # a release branch",
+      "production --only=web --dry-run # rehearse a web-only deploy"
+    ]
+
+    def call(environment:, branch:, **) = puts("Deploying #{branch} to #{environment}.")
+  end
+
+  class Status < Dry::CLI::Command
+    desc "Show what is running in each environment"
+
+    def call(**) = puts("staging: main@4f2c1a0\nproduction: release-41@9be07d3")
+  end
+
+  module Db
+    class Migrate < Dry::CLI::Command
+      desc "Run pending migrations"
+
+      argument :environment, values: ENVIRONMENTS, required: true, desc: "Whose database"
+
+      def call(environment:, **) = puts("Migrating #{environment}.")
+    end
+
+    class Rollback < Dry::CLI::Command
+      desc "Undo the most recent migrations"
+
+      argument :environment, values: ENVIRONMENTS, required: true, desc: "Whose database"
+      option :steps, type: :integer, default: 1, desc: "How many migrations to undo"
+
+      def call(environment:, steps:, **) = puts("Rolling back #{steps} on #{environment}.")
+    end
+  end
+
+  register "ship", Ship
+  register "status", Status
+  register "db" do |prefix|
+    prefix.register "migrate", Db::Migrate
+    prefix.register "rollback", Db::Rollback
+  end
+end
+
+Dry::CLI.new(Deploy).call
