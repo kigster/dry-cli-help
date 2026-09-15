@@ -7,10 +7,20 @@ RSpec.describe Dry::CLI::Help do
 
   describe ".configure" do
     it "yields the process-wide configuration and returns it" do
-      returned = described_class.configure { it.title = "Taxlibris" }
+      returned = described_class.configure { it.title = "MyCLI" }
 
       expect(returned).to be(described_class.config)
-      expect(described_class.config.title).to eq("Taxlibris")
+      expect(described_class.config.title).to eq("MyCLI")
+    end
+
+    it "runs a block without arguments against the configuration" do
+      described_class.configure do
+        title "Evaluated"
+        styles { heading :underline }
+      end
+
+      expect([described_class.config.title, described_class.config.styles[:heading]])
+        .to eq(["Evaluated", %i[underline]])
     end
   end
 
@@ -23,27 +33,8 @@ RSpec.describe Dry::CLI::Help do
     end
   end
 
-  describe ".config_for" do
-    before { described_class.configure { it.width = 100 } }
-
-    it "lays a registry's own settings over the process-wide ones" do
-      cli = registry { help { title "Mine" } }
-      config = described_class.config_for(cli)
-
-      expect([config.title, config.width]).to eq(["Mine", 100])
-    end
-
-    it "uses the process-wide settings for a registry without a help block" do
-      expect(described_class.config_for(registry)).to be(described_class.config)
-    end
-
-    it "uses the process-wide settings for a single command" do
-      expect(described_class.config_for(command)).to be(described_class.config)
-    end
-  end
-
-  it "installs itself into dry-cli" do
+  it "installs itself into dry-cli, and leaves dry-cli's registry DSL alone" do
     expect(Dry::CLI.ancestors).to include(described_class::Integration::CLIMethods)
-    expect(Dry::CLI::Registry.ancestors).to include(described_class::Integration::RegistryMethods)
+    expect(Module.new.extend(Dry::CLI::Registry)).not_to respond_to(:help)
   end
 end

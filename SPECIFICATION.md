@@ -27,46 +27,46 @@ It does not replace `dry-cli` or introduce another command framework. It takes t
 
 ## Example
 
+Every setting is made once, in one block, before any CLI runs. The registry, its commands and their options stay exactly as dry-cli declares them:
+
 ```ruby
 require "dry/cli"
 require "dry/cli/help"
 
-Dry::CLI::Help.configure do |config|
-  config.width = :terminal
-  config.wrap = true
-  config.color = true
-end
-```
+Dry::CLI::Help.configure do
+  title "MyCLI"
 
-An application could provide richer top-level help:
+  description <<~TEXT
+    Compile, validate, and evaluate tax rules.
+  TEXT
 
-```ruby
-class CLI
-  extend Dry::CLI::Registry
+  color :auto
+  width :terminal
 
-  help do
-    title "Taxlibris"
-
-    description <<~TEXT
-      Compile, validate, and evaluate tax rules.
-    TEXT
-
-    color true
-    width :terminal
-    wrap true
+  styles do
+    heading :bold, :yellow, case: :UPPERCASE
+    example_comment :bold, :black
   end
+end
+
+module CLI
+  extend Dry::CLI::Registry # plain dry-cli, nothing added
+
+  register "compile", Compile
+  register "validate", Validate
+  register "evaluate", Evaluate
 end
 ```
 
 Result:
 
 ```text
-Taxlibris
+MyCLI
 
 Compile, validate, and evaluate tax rules.
 
 USAGE
-  taxlibris COMMAND [OPTIONS]
+  my-cli COMMAND [OPTIONS]
 
 COMMANDS
   compile       Compile tax rules
@@ -125,32 +125,31 @@ Requiring `dry/cli/help` changes help output for every `Dry::CLI` in the process
 
 Both are `@api private` in dry-cli 1.4.1. A spec asserts they exist, so a dry-cli release that renames them fails this gem's suite rather than a host's help screen. `Dry::CLI::Help::Integration` holds the override.
 
-`help` is added to `Dry::CLI::Registry`, so any module or class that extends a registry can call it.
+The gem adds nothing to `Dry::CLI::Registry` or `Dry::CLI::Command`. The DSL a host uses to declare commands, arguments, options and examples is dry-cli's, unchanged, so adding or removing this gem never touches a command definition.
 
 ### Configuration
 
-Two levels, one vocabulary. `Dry::CLI::Help.configure` sets process-wide values. A registry's `help` block overrides them for that registry. A setting neither level sets takes the default below.
+One place. `Dry::CLI::Help.configure` holds every setting for the process, and every CLI in the process renders with it. A setting it leaves alone takes the default below.
 
-Every setting reads and writes both ways: `title "Taxlibris"` inside a `help` block, and `config.title = "Taxlibris"` on the yielded object. A `help` block taking one argument receives the configuration instead of being evaluated against it.
+The block reads and writes both ways: `title "MyCLI"` when the block takes no argument and runs against the configuration, and `config.title = "MyCLI"` when it takes one and receives it.
 
-| Setting                       | Values                               | Default         | Effect                                                                 |
-| ----------------------------- | ------------------------------------ | --------------- | ---------------------------------------------------------------------- |
-| `title`                       | String                               | none            | First line of the banner                                               |
-| `description`                 | String                               | none            | Paragraphs under the title, wrapped                                    |
-| `epilogue`                    | String                               | none            | Paragraphs at the end of the top-level help                            |
-| `color`                       | `true`, `false`, `:auto`             | `:auto`         | `:auto` colors a terminal and honors `NO_COLOR`                        |
-| `wrap`                        | `true`, `false`                      | `true`          | `false` prints descriptions as written                                 |
-| `width`                       | `:terminal`, Integer                 | `:terminal`     | The column text wraps at                                               |
-| `margin`                      | Integer                              | `0`             | Columns kept free at the right edge when `width` is `:terminal`        |
-| `exit_code_without_arguments` | Integer, 0 to 255                    | `1`             | Status for `mycli` or `mycli group` with no command                    |
-| `banner_on_subcommands`       | `true`, `false`                      | `false`         | Print the title and description above `mycli command -h`               |
-| `heading_case`                | `:upcase`, `:capitalize`, `:none`    | `:upcase`       | How every heading is cased; `:capitalize` raises only the first letter |
-| `command_order`               | `:registration`, `:alphabetical`     | `:registration` | Order commands list in; dry-cli sorts alphabetically                   |
-| `heading(section, text)`      | Section name, String                 | see below       | Replaces one heading's text                                            |
-| `style(element, *styles)`     | Element name, `Colors::STYLES` names | see below       | Replaces one element's styles                                          |
-| `group(name, *commands)`      | String, command paths                | none            | Lists those commands under their own heading, in declaration order     |
-| `sections(*names)`            | Section names                        | all             | Order of sections; a section left out is hidden                        |
-| `hide(*names)`                | Section names                        | none            | Hides sections without restating the order                             |
+| Setting                       | Values                           | Default         | Effect                                                             |
+| ----------------------------- | -------------------------------- | --------------- | ------------------------------------------------------------------ |
+| `title`                       | String                           | none            | First line of the banner                                           |
+| `description`                 | String                           | none            | Paragraphs under the title, wrapped                                |
+| `epilogue`                    | String                           | none            | Paragraphs at the end of the top-level help                        |
+| `color`                       | `true`, `false`, `:auto`         | `:auto`         | `:auto` colors a terminal and honors `NO_COLOR`                    |
+| `wrap`                        | `true`, `false`                  | `true`          | `false` prints descriptions as written                             |
+| `width`                       | `:terminal`, Integer             | `:terminal`     | The column text wraps at                                           |
+| `margin`                      | Integer                          | `0`             | Columns kept free at the right edge when `width` is `:terminal`    |
+| `exit_code_without_arguments` | Integer, 0 to 255                | `1`             | Status for `mycli` or `mycli group` with no command                |
+| `banner_on_subcommands`       | `true`, `false`                  | `false`         | Print the title and description above `mycli command -h`           |
+| `command_order`               | `:registration`, `:alphabetical` | `:registration` | Order commands list in; dry-cli sorts alphabetically               |
+| `heading(section, text)`      | Section name, String             | see below       | Replaces one heading's text                                        |
+| `styles { ... }`              | One line per element             | see below       | Declares how every element looks, and how headings are cased       |
+| `group(name, *commands)`      | String, command paths            | none            | Lists those commands under their own heading, in declaration order |
+| `sections(*names)`            | Section names                    | all             | Order of sections; a section left out is hidden                    |
+| `hide(*names)`                | Section names                    | none            | Hides sections without restating the order                         |
 
 Terminal width comes from `COLUMNS`, then the console, then 80. A resolved wrap width never falls below 20 columns.
 
@@ -170,7 +169,7 @@ In default order, with default headings:
 | `examples`    | Examples    | no             | yes                                 |
 | `epilogue`    | none        | yes            | only for a single command           |
 
-A single command passed to `Dry::CLI.new(SomeCommand)` is the whole program, so its command help prints the banner and the epilogue too. It has no registry, so it renders with the process-wide settings alone.
+A single command passed to `Dry::CLI.new(SomeCommand)` is the whole program, so its command help prints the banner and the epilogue too.
 
 A group listing, `mycli db` where `db` has no command of its own, renders as top-level help scoped to the group, with the banner only when `banner_on_subcommands` is set, and no epilogue.
 
@@ -178,16 +177,30 @@ Every Options section starts with `-h, --help  Show help`, because both spelling
 
 At any level, a command registered under a name or alias starting with `-`, such as `register "version", Version, aliases: ["--version"]`, lists under Options rather than Commands.
 
-### Styled elements
+### Styles
 
-| Element    | Default styles   | Applies to                             |
-| ---------- | ---------------- | -------------------------------------- |
-| `title`    | `bold`           | The banner title                       |
-| `heading`  | `bold`, `yellow` | Every section heading                  |
-| `command`  | `green`          | Command names and the program in usage |
-| `argument` | `cyan`           | Argument names                         |
-| `option`   | `cyan`           | Option names                           |
-| `comment`  | `bright_black`   | The comment half of an example         |
+Every element's look is declared in one `styles` block inside `configure`. Each line names an element and its styles, from `Colors::STYLES`. An element left out keeps its default; a line with no styles prints the element plain.
+
+```ruby
+styles do
+  heading :bold, :blue, case: :Capitalize
+  example :yellow
+  example_comment # plain
+end
+```
+
+| Element           | Default styles   | Applies to                                 |
+| ----------------- | ---------------- | ------------------------------------------ |
+| `title`           | `bold`           | The banner title                           |
+| `heading`         | `bold`, `yellow` | Every section and group heading            |
+| `usage`           | `green`          | Every usage line, whole                    |
+| `command`         | `green`          | Command names in a list                    |
+| `argument`        | `cyan`           | Argument names                             |
+| `option`          | `cyan`           | Option names                               |
+| `example`         | `green`          | The command line of an example             |
+| `example_comment` | `bold`, `black`  | The part of an example after the first `#` |
+
+`heading` alone takes `case:`, one of `:UPPERCASE` (the default), `:Capitalize`, `:lowercase` or `:as_is`, each written the way it cases. It applies to every heading. `:Capitalize` raises only the first letter and leaves the rest as written. `heading case: :as_is` with no styles changes the case and keeps the heading's styles.
 
 ### Layout
 

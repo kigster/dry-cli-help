@@ -5,18 +5,20 @@ RSpec.describe Dry::CLI::Help::Integration do
     text.gsub(/\e\[[\d;]*m/, "")
   end
 
-  let(:taxlibris) { Fixtures::TaxlibrisCLI }
+  let(:my_cli) { Fixtures::MyCLICLI }
 
-  before { $PROGRAM_NAME = "taxlibris" }
+  before { $PROGRAM_NAME = "my-cli" }
 
   describe "top-level help" do
+    before { my_cli.configure_help }
+
     expected = <<~TEXT
-      Taxlibris
+      MyCLI
 
       Compile, validate, and evaluate tax rules.
 
       USAGE
-        taxlibris COMMAND [OPTIONS]
+        my-cli COMMAND [OPTIONS]
 
       COMMANDS
         compile     Compile tax rules
@@ -29,38 +31,36 @@ RSpec.describe Dry::CLI::Help::Integration do
     TEXT
 
     it "renders the specification's example for -h, and exits 0" do
-      run = run_cli(taxlibris, "-h")
+      run = run_cli(my_cli, "-h")
 
       expect([run.status, plain(run.out), run.err]).to eq([0, expected, ""])
     end
 
     it "renders the same for --help" do
-      expect(plain(run_cli(taxlibris, "--help").out)).to eq(expected)
+      expect(plain(run_cli(my_cli, "--help").out)).to eq(expected)
     end
 
-    it "colors it when the registry asks for color" do
-      expect(run_cli(taxlibris, "-h").out).to include("\e[1mTaxlibris\e[0m", "\e[1;33mUSAGE\e[0m")
+    it "colors it when configured to" do
+      expect(run_cli(my_cli, "-h").out).to include("\e[1mMyCLI\e[0m", "\e[1;33mUSAGE\e[0m")
     end
 
     it "prints to stderr and exits 1 without arguments, as dry-cli does" do
-      run = run_cli(taxlibris)
+      run = run_cli(my_cli)
 
       expect([run.status, run.out, plain(run.err)]).to eq([1, "", expected])
     end
 
     it "prints to stdout with the configured exit status without arguments" do
-      cli = registry do
-        help { exit_code_without_arguments 0 }
-        register "run", Class.new(Dry::CLI::Command) { def call(**) = nil }
-      end
+      Dry::CLI::Help.configure { exit_code_without_arguments 0 }
+      cli = registry { register "run", Class.new(Dry::CLI::Command) { def call(**) = nil } }
       run = run_cli(cli)
 
       expect([run.status, run.err]).to eq([0, ""])
-      expect(run.out).to include("COMMANDS\n  run")
+      expect(plain(run.out)).to include("COMMANDS\n  run")
     end
 
     it "suggests a command for a typo, then lists the commands, and exits 1" do
-      run = run_cli(taxlibris, "compil")
+      run = run_cli(my_cli, "compil")
 
       expect(run.status).to eq(1)
       expect(plain(run.err)).to start_with("I don't know how to 'compil'. Did you mean: 'compile' ?\n\n")
@@ -68,7 +68,7 @@ RSpec.describe Dry::CLI::Help::Integration do
     end
 
     it "lists the commands without a suggestion when nothing is close" do
-      run = run_cli(taxlibris, "zzzzzzzz")
+      run = run_cli(my_cli, "zzzzzzzz")
 
       expect([run.status, plain(run.err)]).to eq([1, expected])
     end
@@ -76,12 +76,13 @@ RSpec.describe Dry::CLI::Help::Integration do
 
   describe "command help" do
     it "renders every section a command declares, and exits 0" do
-      run = run_cli(taxlibris, "compile", "-h")
+      my_cli.configure_help
+      run = run_cli(my_cli, "compile", "-h")
 
       expect(run.status).to eq(0)
       expect(plain(run.out)).to eq(<<~TEXT)
         USAGE
-          taxlibris compile RULES [OUTPUT] [OPTIONS]
+          my-cli compile RULES [OUTPUT] [OPTIONS]
 
         DESCRIPTION
           Compile tax rules
@@ -98,20 +99,18 @@ RSpec.describe Dry::CLI::Help::Integration do
           -h, --help               Show help
 
         EXAMPLES
-          taxlibris compile rules.form  compile one file
-          taxlibris compile rules.form build/rules.json
+          my-cli compile rules.form  compile one file
+          my-cli compile rules.form build/rules.json
       TEXT
     end
 
     it "prints the banner above command help only when asked to" do
-      cli = registry do
-        help { title "Tool" }
-        register "run", Class.new(Dry::CLI::Command) { def call(**) = nil }
-      end
+      Dry::CLI::Help.configure { title "Tool" }
+      cli = registry { register "run", Class.new(Dry::CLI::Command) { def call(**) = nil } }
 
       expect(run_cli(cli, "run", "-h").out).not_to include("Tool")
 
-      cli.help { banner_on_subcommands true }
+      Dry::CLI::Help.configure { banner_on_subcommands true }
 
       expect(run_cli(cli, "run", "-h").out).to start_with("Tool\n\nUSAGE")
     end
@@ -123,7 +122,7 @@ RSpec.describe Dry::CLI::Help::Integration do
       end
       solo = command { desc "Does one thing" }
 
-      expect(run_cli(solo, "-h").out).to start_with("Solo\n\nUSAGE\n  taxlibris [OPTIONS]").and end_with("Bye.\n")
+      expect(run_cli(solo, "-h").out).to start_with("Solo\n\nUSAGE\n  my-cli [OPTIONS]").and end_with("Bye.\n")
     end
   end
 
@@ -153,27 +152,6 @@ RSpec.describe Dry::CLI::Help::Integration do
 
     it "exits with the configured status when named alone" do
       expect(run_cli(cli, "generate").status).to eq(1)
-    end
-  end
-
-  describe "#help on a registry" do
-    it "runs a block without arguments against the configuration" do
-      cli = registry { help { title "Evaluated" } }
-
-      expect(cli.help_config.title).to eq("Evaluated")
-    end
-
-    it "yields the configuration to a block with one argument" do
-      cli = registry { help { it.title = "Yielded" } }
-
-      expect(cli.help_config.title).to eq("Yielded")
-    end
-
-    it "returns the configuration without a block" do
-      cli = registry
-
-      expect(cli.help_config).to be_nil
-      expect(cli.help).to be(cli.help_config)
     end
   end
 end

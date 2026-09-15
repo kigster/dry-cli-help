@@ -5,7 +5,7 @@ require "dry/cli"
 module Fixtures
   # The example from SPECIFICATION.md, extended with one command that uses
   # every feature a command screen renders.
-  module TaxlibrisCLI
+  module MyCLICLI
     extend Dry::CLI::Registry
 
     class Compile < Dry::CLI::Command
@@ -41,16 +41,19 @@ module Fixtures
       def call(**); end
     end
 
-    help do
-      title "Taxlibris"
+    # The settings a host would make once, at boot.
+    def self.configure_help
+      Dry::CLI::Help.configure do
+        title "MyCLI"
 
-      description <<~TEXT
-        Compile, validate, and evaluate tax rules.
-      TEXT
+        description <<~TEXT
+          Compile, validate, and evaluate tax rules.
+        TEXT
 
-      color true
-      width :terminal
-      wrap true
+        color true
+        width :terminal
+        wrap true
+      end
     end
 
     register "compile", Compile

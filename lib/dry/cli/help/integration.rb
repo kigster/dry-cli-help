@@ -20,7 +20,7 @@ module Dry
           def help(command, prog_name)
             screen = Screens::Command.new(
               command:, prog_name:, top_level: !kommand.nil?,
-              config: Help.config_for(registry), io: out
+              config: Help.config, io: out
             )
             out.puts screen.render
             exit(0)
@@ -30,7 +30,7 @@ module Dry
           # all, a group without a command of its own, `-h` or `--help` at a
           # registry level, or a typo.
           def spell_checker(result, arguments)
-            config = Help.config_for(registry)
+            config = Help.config
             unmatched = arguments.drop(result.names.length)
 
             if unmatched.empty?
@@ -48,34 +48,6 @@ module Dry
           def list(result, config, io, status)
             io.puts Screens::Listing.new(result:, config:, io:).render
             exit(status)
-          end
-        end
-
-        # Included into Dry::CLI::Registry, so every registry can describe itself.
-        module RegistryMethods
-          # Configure this registry's help. A block taking an argument receives
-          # the configuration; any other block runs against it.
-          #
-          # @example
-          #   help do
-          #     title "Taxlibris"
-          #     width 100
-          #   end
-          #
-          # @return [Configuration] this registry's settings
-          def help(&block)
-            @help_config ||= Configuration.new
-            if block&.arity == 1
-              yield @help_config
-            elsif block
-              @help_config.instance_eval(&block)
-            end
-            @help_config
-          end
-
-          # @return [Configuration, nil] nil until {#help} is called
-          def help_config
-            @help_config
           end
         end
       end

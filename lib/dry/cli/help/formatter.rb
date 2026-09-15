@@ -49,12 +49,15 @@ module Dry
           title(config.headings.fetch(section))
         end
 
-        # A heading with the configured case and style, for any text.
+        # A heading in the configured case and style, for any text.
+        #
+        # @param text [String]
         # @return [String]
         def title(text)
           cased = case config.heading_case
-                  when :upcase then text.upcase
-                  when :capitalize then text.sub(/\A\p{Ll}/, &:upcase)
+                  when :UPPERCASE then text.upcase
+                  when :lowercase then text.downcase
+                  when :Capitalize then text.sub(/\A\p{Ll}/, &:upcase)
                   else text
                   end
           paint(cased, :heading)

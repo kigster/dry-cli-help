@@ -48,14 +48,24 @@ RSpec.describe Dry::CLI::Help::Formatter do
     end
 
     it "capitalizes only the first letter" do
-      config.heading_case = :capitalize
+      config.styles { heading case: :Capitalize }
       config.heading(:commands, "available GitHub commands")
 
       expect(format.heading(:commands)).to eq("Available GitHub commands")
     end
 
+    it "lowercases" do
+      config.styles { heading case: :lowercase }
+
+      expect(format.heading(:usage)).to eq("usage")
+    end
+
+    it "upcases any text by default" do
+      expect(format.title("my Group")).to eq("MY GROUP")
+    end
+
     it "keeps text as written" do
-      config.heading_case = :none
+      config.styles { heading case: :as_is }
 
       expect(format.title("my Group")).to eq("my Group")
     end
@@ -146,9 +156,9 @@ RSpec.describe Dry::CLI::Help::Formatter do
 
     it "paints terms and descriptions with their own styles" do
       config.color = true
-      rows = [row.new(term: "run", text: "go", term_style: :option, text_style: :comment)]
+      rows = [row.new(term: "run", text: "go", term_style: :option, text_style: :example_comment)]
 
-      expect(format.definitions(rows, 3)).to eq(["  \e[36mrun\e[0m  \e[90mgo\e[0m"])
+      expect(format.definitions(rows, 3)).to eq(["  \e[36mrun\e[0m  \e[1;30mgo\e[0m"])
     end
   end
 end

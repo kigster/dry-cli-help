@@ -32,10 +32,9 @@ module Dry
           end
 
           def render_usage
-            program = format.paint(prog_name, :command)
-            lines = ["#{INDENT}#{program}#{usage_arguments} [OPTIONS]"]
-            lines << "#{INDENT}#{program} COMMAND [OPTIONS]" if subcommand_rows.any?
-            section(:usage, lines)
+            lines = ["#{prog_name}#{usage_arguments} [OPTIONS]"]
+            lines << "#{prog_name} COMMAND [OPTIONS]" if subcommand_rows.any?
+            section(:usage, lines.map { INDENT + format.paint(it, :usage) })
           end
 
           def render_description
@@ -59,7 +58,8 @@ module Dry
           def render_examples
             rows = command.examples.map do |example|
               line, comment = example.split(" # ", 2)
-              Row.new(term: "#{prog_name} #{line.strip}", text: comment&.strip, text_style: :comment)
+              Row.new(term: "#{prog_name} #{line.strip}", text: comment&.strip,
+                      term_style: :example, text_style: :example_comment)
             end
             section(:examples, format.definitions(rows, format.column_for(rows)))
           end
@@ -72,7 +72,7 @@ module Dry
             required = command.required_arguments.map { argument_name(it) }
             optional = command.optional_arguments.map { "[#{argument_name(it)}]" }
             names = [*required, *optional]
-            " #{format.paint(names.join(' '), :argument)}" unless names.empty?
+            " #{names.join(' ')}" unless names.empty?
           end
 
           def subcommand_rows

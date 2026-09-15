@@ -18,7 +18,7 @@ RSpec.describe "The dry-cli internals this gem depends on" do
   end
 
   it "exposes the readers the overrides call" do
-    expect(%i[kommand registry out err].all? { Dry::CLI.private_method_defined?(it) }).to be(true)
+    expect(%i[kommand out err].all? { Dry::CLI.private_method_defined?(it) }).to be(true)
   end
 
   it "exposes registry nodes and lookups through readers" do

@@ -54,9 +54,9 @@ RSpec.describe Dry::CLI::Help::Screens::Listing do
   end
 
   describe "command groups" do
-    before { $PROGRAM_NAME = "taxlibris" }
+    before { $PROGRAM_NAME = "my-cli" }
 
-    let(:output) { help_for(Fixtures::TaxlibrisCLI).gsub(/\e\[[\d;]*m/, "") }
+    let(:output) { help_for(Fixtures::MyCLICLI).gsub(/\e\[[\d;]*m/, "") }
 
     it "lists ungrouped commands first, then each group in declaration order" do
       Dry::CLI::Help.configure do
@@ -77,6 +77,15 @@ RSpec.describe Dry::CLI::Help::Screens::Listing do
       expect(output).not_to include("NOTHING HERE")
     end
 
+    it "cases group headings like every other heading" do
+      Dry::CLI::Help.configure do
+        group "Rule tools", "compile"
+        styles { heading case: :as_is }
+      end
+
+      expect(output).to include("Commands\n  validate").and include("\n\nRule tools\n  compile")
+    end
+
     it "prints no Commands heading when every command is grouped" do
       Dry::CLI::Help.configure { it.group("All", "compile", "validate", "evaluate") }
 
@@ -86,13 +95,12 @@ RSpec.describe Dry::CLI::Help::Screens::Listing do
   end
 
   describe "sections" do
-    let(:cli) do
-      registry do
-        help do
-          title "Tool"
-          epilogue "Read the manual."
-        end
-        register "run", Class.new(Dry::CLI::Command) { desc "Run it"; def call(**) = nil }
+    let(:cli) { registry { register "run", Class.new(Dry::CLI::Command) { desc "Run it"; def call(**) = nil } } }
+
+    before do
+      Dry::CLI::Help.configure do
+        title "Tool"
+        epilogue "Read the manual."
       end
     end
 
@@ -101,21 +109,21 @@ RSpec.describe Dry::CLI::Help::Screens::Listing do
     end
 
     it "prints sections in the configured order, leaving out the rest" do
-      cli.help { sections :commands, :banner }
+      Dry::CLI::Help.configure { sections :commands, :banner }
 
       expect(help_for(cli)).to eq("COMMANDS\n  run         Run it\n\nTool\n")
     end
 
     it "hides sections" do
-      cli.help { hide :banner, :usage, :options, :epilogue }
+      Dry::CLI::Help.configure { hide :banner, :usage, :options, :epilogue }
 
       expect(help_for(cli)).to eq("COMMANDS\n  run         Run it\n")
     end
 
     it "uses custom heading text and case" do
-      cli.help do
+      Dry::CLI::Help.configure do
         heading :commands, "available commands"
-        heading_case :capitalize
+        styles { heading case: :Capitalize }
       end
 
       expect(help_for(cli)).to include("Available commands\n  run")
@@ -126,7 +134,7 @@ RSpec.describe Dry::CLI::Help::Screens::Listing do
     end
 
     it "prints the description alone when there is no title" do
-      cli.help do
+      Dry::CLI::Help.configure do
         title nil
         description "Does things."
       end
