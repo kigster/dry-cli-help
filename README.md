@@ -5,7 +5,7 @@
 Configurable, wrapped, colored help screens for [dry-cli](https://github.com/dry-rb/dry-cli) applications.
 
 > [!NOTE]
-> The design, the settings and every decision behind them are in [SPECIFICATION.md](SPECIFICATION.md).
+> The original design, the settings and the decisions behind them are in [docs/SPECIFICATION.md](docs/SPECIFICATION.md), written for version 0.1.0.
 
 dry-cli prints help as it finds it: no title, no description of the program, no color, one line per description however long, and commands sorted alphabetically. This gem keeps the command structure you already declared and changes only what the user reads before a command runs. Progress bars, spinners and error panels belong in `dry-cli-ui`.
 
@@ -54,7 +54,7 @@ OPTIONS
 
 Headings are bold and yellow, commands green, options and arguments cyan, and every description wraps to the terminal with a hanging indent.
 
-Although, it is best to show them side by side as a screenshot: this script `rbcheck` is in the `examples` folder of the gem.
+The same comparison as screenshots, taken from `examples/rbcheck`:
 
 | Standard dry-cli Help Screen                    | Require `dry/cli/help`                   |
 | :---------------------------------------------- | :--------------------------------------- |
@@ -68,6 +68,8 @@ gem install dry-cli-help
 ```
 
 Or add `gem "dry-cli-help"` to your `Gemfile`.
+
+It requires Ruby 4.0 or newer, and depends on `dry-cli` and `pastel`.
 
 ## Usage
 
@@ -85,7 +87,7 @@ Dry::CLI::Help.configure do
   title "MyCLI"
 
   description <<~TEXT
-    This utility does something very important.
+    Compile, validate, and evaluate rules.
   TEXT
 
   epilogue "Documentation: https://example.com/my-cli"
@@ -99,10 +101,10 @@ module My
   module CLI
     extend Dry::CLI::Registry
 
-    register "compile", Compile
+    register "compile",  Compile
     register "validate", Validate
     register "evaluate", Evaluate
-    register "version", Version, aliases: ["--version", "-v"]
+    register "version",  Version, aliases: ["--version", "-v"]
   end
 end
 ```
@@ -130,7 +132,7 @@ OPTIONS
 Documentation: https://example.com/my-cli
 ```
 
-A command reachable as `--version` lists under Options by its dashed names.
+A command reachable as `--version` lists under Options by its dashed names. Commands marked `hidden: true` in the registry stay out of every list, and a non-dashed alias prints next to its command, as in `build, b`.
 
 A block that takes an argument receives the configuration instead of running against it:
 
@@ -140,6 +142,8 @@ Dry::CLI::Help.configure do |config|
   config.color = false
 end
 ```
+
+Every setting validates its value and raises `ArgumentError` on one it cannot use. `Dry::CLI::Help.config` returns the current settings, and `Dry::CLI::Help.reset!` forgets them all, which is handy between tests.
 
 ## Examples
 
@@ -160,7 +164,7 @@ if [ARGV.delete("--with-dry-cli-help"), ARGV.delete("-w")].any?
   require "dry/cli/help"
 
   Dry::CLI::Help.configure do
-    title "RBCheck"
+    title "rbcheck"
     description "Small checks for Ruby projects."
     epilogue "Report bugs at https://example.com/rbcheck/issues"
   end
@@ -202,7 +206,7 @@ Every screen below comes from running it in an 80-column terminal.
 
 ### `rbcheck -h`
 
-dry-cli alone prints a list of commands and exits 1. Also note the lack of wrapping on the long description.
+dry-cli alone prints a list of commands to stderr and exits 1, and does not wrap the long description.
 
 ```text
 Commands:
@@ -210,10 +214,13 @@ Commands:
   rbcheck version                                 # Print the version
 ```
 
-With this gem in play it exits 0 and prints:
+With this gem, `rbcheck -h` prints the help below to stdout and exits 0.
+
+> [!NOTE]
+> Whether a CLI run with no arguments should exit 1 or 0 is debatable. dry-cli exits 1, and so does this gem by default: plain `rbcheck` prints the same screen to stderr and exits 1. Set [`exit_code_without_arguments`](#dsl-based-configuration-api) to `0` to treat it like `-h` instead.
 
 ```text
-RB	check
+rbcheck
 
 Small checks for Ruby projects.
 
@@ -298,11 +305,13 @@ In a terminal the headings print bold yellow, usage lines, commands and examples
 
 `examples/todo` shows nested commands, custom headings and a `styles` block. `examples/deploy` shows a fixed width, a banner above command help, reordered sections and help without a command exiting 0. [`examples/README.md`](examples/README.md) lists what each one demonstrates.
 
-## Settings
+## DSL-based Configuration API
+
+The gem offers a compact DSL in the general spirit of Ruby and `dry-rb` in particular, and makes the following methods available within the `configure` block.
 
 | Setting                       | Values                           | Default         | What it does                                                                                                              |
 | ----------------------------- | -------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `title`                       | String                           | none            | Prints a bold first line at the top of the top-level help                                                                 |
+| `title`                       | String                           | none            | Prints the first line of the banner, above the top-level help                                                             |
 | `description`                 | String                           | none            | Prints paragraphs under the title, reflowed to the wrap width                                                             |
 | `epilogue`                    | String                           | none            | Prints paragraphs at the very end of the top-level help                                                                   |
 | `color`                       | `true`, `false`, `:auto`         | `:auto`         | Paints headings, commands, arguments and options; `:auto` paints only a terminal                                          |
@@ -315,7 +324,15 @@ In a terminal the headings print bold yellow, usage lines, commands and examples
 
 `color :auto` colors a terminal and honors [`NO_COLOR`](https://no-color.org). `width :terminal` reads `COLUMNS`, then the console, then falls back to 80, and `margin` keeps columns free at the right edge.
 
-Running the program with no command prints the top-level help and exits 1, as dry-cli does. `exit_code_without_arguments 0` prints it to stdout and exits 0 instead. `-h` and `--help` always exit 0.
+Running the program, or a group such as `my-cli db`, with no command prints its help to stderr and exits 1, as dry-cli does. With
+
+```ruby
+exit_code_without_arguments 0
+```
+
+it prints to stdout and exits 0 instead. `-h` and `--help` always print to stdout and exit 0. A mistyped command prints dry-cli's suggestion, then the help, to stderr and exits 1.
+
+The banner (title and description) and the epilogue print on the top-level help. A CLI built from a single command, `Dry::CLI.new(Deploy)`, counts as top level, so its command help gets both.
 
 ### Headings, sections and groups
 
@@ -331,11 +348,24 @@ Dry::CLI::Help.configure do
 end
 ```
 
-- `heading` replaces one section's heading text. How headings are cased belongs to their style, below.
-- `group` lists commands under a heading of their own, in the order given. Ungrouped commands stay under Commands. A group inside a group names the full path, such as `"db migrate"`.
+- `heading` replaces one section's heading text. It takes `:usage`, `:description`, `:commands`, `:subcommands`, `:arguments`, `:options` or `:examples`; `banner` and `epilogue` have no heading. How headings are cased belongs to their style, below.
+- `group` lists commands under a heading of their own, in the order given. Ungrouped commands stay under Commands, and groups print below them in the order declared. A group with no commands raises `ArgumentError`; a group whose commands a screen does not list prints no heading there. A nested command is named by its full path, such as `"db migrate"`, and its group shows on `my-cli db -h`.
 - `sections` sets the order; a section left out is hidden. `hide` hides sections without restating the order.
 
-The sections are `banner`, `usage`, `description`, `commands`, `subcommands`, `arguments`, `options`, `examples` and `epilogue`. Each screen prints the ones that apply to it.
+The sections are `banner`, `usage`, `description`, `commands`, `subcommands`, `arguments`, `options`, `examples` and `epilogue`. Each screen prints the ones that apply to it:
+
+| Screen                                        | Sections it can print                                                                           |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| A listing: `my-cli`, `my-cli -h`, `my-cli db` | `banner`, `usage`, `commands`, `options`, `epilogue`                                            |
+| A command: `my-cli compile -h`                | `banner`, `usage`, `description`, `subcommands`, `arguments`, `options`, `examples`, `epilogue` |
+
+A few details of those screens:
+
+- A command that also has subcommands gets a second usage line, `my-cli db COMMAND [OPTIONS]`, and a Subcommands section.
+- A group registered without a command of its own describes itself by what it holds, as in `Subcommands: add, remove`.
+- An array argument prints as `FILES...`.
+- Every definition list on a screen shares one description column, never wider than half the wrap width. A term longer than that column puts its description on the next line.
+- Text never wraps narrower than 20 columns, however small the terminal.
 
 ### Styles
 
@@ -386,7 +416,7 @@ class Deploy < Dry::CLI::Command
 end
 ```
 
-The methods are the eight colors `black red green yellow blue magenta cyan white`, their `bright_` forms, the `on_` and `on_bright_` backgrounds, and `clear bold dim italic underline inverse hidden strikethrough`. `Dry::CLI::Help::Colors.enabled = false` turns them all off.
+The methods are the eight colors `black red green yellow blue magenta cyan white`, their `bright_` forms, the `on_` and `on_bright_` backgrounds, and `clear bold dim italic underline inverse hidden strikethrough`. `Dry::CLI::Help::Colors.enabled` takes `true`, `false` or `:auto` (the default, which colors only a terminal and honors `NO_COLOR`). Help screens ignore that switch and follow the `color` setting.
 
 ## How it works
 
@@ -410,7 +440,7 @@ flowchart TB
     command_screen --> formatter["Formatter"]
     listing_screen --> formatter
 
-    help_config["Help.configure + registry help block"] --> formatter
+    help_config["Help.configure"] --> formatter
 
     formatter --> output["stdout or stderr"]
 ```
@@ -420,13 +450,16 @@ Both methods are `@api private` in dry-cli. `spec/dry/cli/help/dry_cli_contract_
 ## Development
 
 ```bash
-just install     # bundle install
-just test        # the suite; a full run enforces 100% line and branch coverage
-just lint        # rubocop
-just ci          # both
-just lefthook    # every pre-commit hook against every file
-just format      # rubocop -a, then mdformat --wrap no on every Markdown file
-bin/console      # IRB with the gem loaded
+just install        # bundle install
+just test           # the suite; a full run enforces 100% line and branch coverage
+just test-coverage  # measure coverage even for a partial run
+just lint           # rubocop
+just ci             # rubocop, then the suite with coverage
+just lefthook       # every pre-commit hook against every file
+just format         # mdformat --wrap no on every Markdown file, then rubocop -a
+just doc            # YARD documentation
+just build          # build the .gem into pkg/
+bin/console         # IRB with the gem loaded
 ```
 
 ## Contributing
@@ -434,7 +467,21 @@ bin/console      # IRB with the gem loaded
 Bug reports and pull requests are welcome at <https://github.com/kigster/dry-cli-help>.
 
 > [!WARNING]
-> The `dry-` prefix and the `Dry::CLI::Help` namespace do not imply endorsement by dry-rb. This is an independent gem that extends theirs.
+> The `dry-` prefix and the `Dry::CLI::Help` namespace do not imply endorsement by dry-rb.
+>
+> This is an independent and opinionated gem that extends theirs.
+
+## Note to Dry-Rb Maintainers
+
+First — hats off to all of you who tirelessly built out one of the most valuable collections of libraries in the Ruby ecosystem.
+
+While I admire and would be willing to contribute any or all of the extension gem's code to the original gem, I feel that creating plugins and extensions allows the author to fully express their needs and wants, and then, if the authors of `dry-cli` become interested in any of them, I would be honored to submit a PR to `dry-cli` itself.
+
+This method offered a very open road to extensibility and experimentation. If the code quality or design is not up to the level required for direct contributions to `dry-rb`, then let it be known that:
+
+1. We would be very happy to receive any feedback and improve, refactor, and update the gem assuming it improves it
+1. Roll any part of the codebase as a PR to the `dry-cli` core.
+1. We hold the authors of `dry-rb` in high regard, and generally would love to collaborate, as long as the feedback loop/cycle is not so long that the context of the changes gets lost in time, as with so many contributions made to other gems in the past.
 
 ## License
 

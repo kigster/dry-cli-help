@@ -1,9 +1,21 @@
 ## [Unreleased]
 
+## [0.5.0] - Unreleased
+
+- The `dry-cli` dependency no longer pins a version range; any release satisfies it.
+- `SPECIFICATION.md` moves to `docs/SPECIFICATION.md`, marked as the specification for 0.1.0, and stays out of the YARD documentation.
+- The README documents which sections each screen prints, how groups and nested commands list, the description column and minimum wrap width, `Help.config`, `Help.reset!`, and the `ArgumentError` a bad setting raises.
+
+## [0.2.1] - 2026-09-15
+
 - Every setting is made once, in `Dry::CLI::Help.configure`, which now also accepts a block without an argument and runs it against the configuration. The `help` block on registries is removed, along with `Help.config_for` and `Configuration#merge`: the gem adds nothing to dry-cli's registry or command DSL.
 - A `styles` block declares every element's look in one place, replacing `style(element, *names)`. New elements `usage`, `example` and `example_comment`; `comment` is renamed `example_comment` and defaults to bold black.
 - Heading case moves into the heading style: `styles { heading :bold, case: :Capitalize }`, one of `:UPPERCASE`, `:Capitalize`, `:lowercase` or `:as_is`. The `heading_case` setting is removed.
 - `examples/` holds three single-file dry-cli tools that switch this gem on with `--with-dry-cli-help` or `-w`.
+
+## [0.2.0] - 2026-09-14
+
+- Documentation, justfile, lefthook and packaging fixes after the conversion. No change to behavior.
 
 ## [0.1.0] - 2026-09-12
 

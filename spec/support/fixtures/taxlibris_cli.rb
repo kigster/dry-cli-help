@@ -3,7 +3,7 @@
 require "dry/cli"
 
 module Fixtures
-  # The example from SPECIFICATION.md, extended with one command that uses
+  # The example from docs/SPECIFICATION.md, extended with one command that uses
   # every feature a command screen renders.
   module MyCLICLI
     extend Dry::CLI::Registry

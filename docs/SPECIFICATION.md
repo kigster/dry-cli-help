@@ -1,5 +1,8 @@
 # dry-cli-help
 
+> [!NOTE]
+> This is the specification for version 0.1.0. Later versions may differ; the README describes the current behavior.
+
 Enhanced help presentation for [`dry-cli`](https://github.com/dry-rb/dry-cli).
 
 ## Purpose
