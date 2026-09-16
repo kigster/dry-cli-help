@@ -11,6 +11,7 @@ RSpec.describe Dry::CLI::Help::Configuration do
 
     it "has every heading, style and section, no groups and nothing hidden" do
       expect(config.headings).to eq(described_class::HEADINGS)
+      expect(config.heading_case).to eq(:UPPERCASE)
       expect(config.styles).to eq(described_class::STYLES)
       expect(config.sections).to eq(described_class::SECTIONS)
       expect([config.groups, config.hidden]).to eq([[], []])
@@ -19,7 +20,7 @@ RSpec.describe Dry::CLI::Help::Configuration do
 
   describe "single-value settings" do
     valid = {
-      title: "Taxlibris",
+      title: "MyCLI",
       description: "Compile tax rules.",
       epilogue: "See the manual.",
       color: false,
@@ -28,7 +29,6 @@ RSpec.describe Dry::CLI::Help::Configuration do
       margin: 4,
       exit_code_without_arguments: 0,
       banner_on_subcommands: true,
-      heading_case: :capitalize,
       command_order: :alphabetical
     }
 
@@ -42,7 +42,6 @@ RSpec.describe Dry::CLI::Help::Configuration do
       margin: -1,
       exit_code_without_arguments: 256,
       banner_on_subcommands: "no",
-      heading_case: :shout,
       command_order: :random
     }
 
@@ -65,7 +64,6 @@ RSpec.describe Dry::CLI::Help::Configuration do
     it "accepts every documented value" do
       expect { config.color(:auto) }.not_to raise_error
       expect { config.width(:terminal) }.not_to raise_error
-      expect { config.heading_case(:none) }.not_to raise_error
       expect { config.title(nil) }.not_to raise_error
     end
   end
@@ -86,25 +84,61 @@ RSpec.describe Dry::CLI::Help::Configuration do
     end
   end
 
-  describe "#style" do
-    it "replaces one element's styles and keeps the others" do
-      config.style(:heading, :underline, :blue)
+  describe "#styles" do
+    it "sets several elements in one block and keeps the rest" do
+      config.styles do
+        heading :underline, :blue
+        example :magenta
+      end
 
-      expect(config.styles).to include(heading: %i[underline blue], title: %i[bold])
+      expect(config.styles).to include(heading: %i[underline blue], example: %i[magenta], title: %i[bold])
+    end
+
+    it "yields the declarations to a block with one argument" do
+      config.styles { it.option :red }
+
+      expect(config.styles[:option]).to eq(%i[red])
     end
 
     it "prints an element plain when given no styles" do
-      config.style(:comment)
+      config.styles { example_comment }
 
-      expect(config.styles[:comment]).to eq([])
+      expect(config.styles[:example_comment]).to eq([])
+    end
+
+    it "adds up across blocks" do
+      config.styles { title :red }
+      config.styles { usage :blue }
+
+      expect(config.styles).to include(title: %i[red], usage: %i[blue])
+    end
+
+    it "sets the heading case with the heading's styles" do
+      config.styles { heading :bold, case: :Capitalize }
+
+      expect([config.styles[:heading], config.heading_case]).to eq([%i[bold], :Capitalize])
+    end
+
+    it "sets the heading case alone and keeps the heading's styles" do
+      config.styles { heading case: :lowercase }
+
+      expect([config.styles[:heading], config.heading_case]).to eq([%i[bold yellow], :lowercase])
     end
 
     it "rejects an unknown element" do
-      expect { config.style(:banner, :bold) }.to raise_error(ArgumentError, /:banner/)
+      expect { config.styles { banner :bold } }.to raise_error(NameError, /banner/)
     end
 
     it "rejects an unknown style" do
-      expect { config.style(:title, :sparkly) }.to raise_error(ArgumentError, /:sparkly/)
+      expect { config.styles { title :sparkly } }.to raise_error(ArgumentError, /:sparkly/)
+    end
+
+    it "rejects an unknown case" do
+      expect { config.styles { heading case: :upcase } }.to raise_error(ArgumentError, /:upcase/)
+    end
+
+    it "rejects a case on anything but a heading" do
+      expect { config.styles { title :bold, case: :lowercase } }.to raise_error(ArgumentError, /title takes no case:/)
     end
   end
 
@@ -176,53 +210,6 @@ RSpec.describe Dry::CLI::Help::Configuration do
       config.margin = 50
 
       expect(config.wrap_width(60)).to eq(described_class::MIN_WIDTH)
-    end
-  end
-
-  describe "#merge" do
-    let(:global) do
-      described_class.new.tap do
-        it.title = "Global"
-        it.width = 100
-        it.heading(:usage, "Synopsis")
-        it.style(:title, :red)
-        it.hide(:banner)
-        it.group("Global group", "one")
-      end
-    end
-
-    let(:local) do
-      described_class.new.tap do
-        it.title = "Local"
-        it.heading(:commands, "Things")
-        it.style(:heading, :blue)
-        it.hide(:epilogue)
-        it.group("Local group", "two")
-      end
-    end
-
-    let(:merged) { global.merge(local) }
-
-    it "returns a new instance and changes neither side" do
-      expect(merged).not_to be(global)
-      expect([global.title, local.title]).to eq(%w[Global Local])
-    end
-
-    it "lets the other side's settings win" do
-      expect([merged.title, merged.width]).to eq(["Local", 100])
-    end
-
-    it "merges headings and styles key by key" do
-      expect(merged.headings).to include(usage: "Synopsis", commands: "Things")
-      expect(merged.styles).to include(title: %i[red], heading: %i[blue])
-    end
-
-    it "adds up hidden sections" do
-      expect(merged.hidden).to eq(%i[banner epilogue])
-    end
-
-    it "replaces groups" do
-      expect(merged.groups).to eq([["Local group", %w[two]]])
     end
   end
 end

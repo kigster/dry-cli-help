@@ -66,8 +66,8 @@ RSpec.describe Dry::CLI::Help::Screens::Command do
 
   it "keeps a long description on one line when wrapping is off" do
     long = "word " * 30
+    Dry::CLI::Help.configure { wrap false }
     cli = registry do
-      help { wrap false }
       register "run", Class.new(Dry::CLI::Command) { desc long.strip; def call(**) = nil }
     end
 
@@ -85,6 +85,6 @@ RSpec.describe Dry::CLI::Help::Screens::Command do
   it "hides examples when asked to" do
     Dry::CLI::Help.configure { it.hide(:examples) }
 
-    expect(help_for(Fixtures::TaxlibrisCLI, "compile")).not_to include("EXAMPLES")
+    expect(help_for(Fixtures::MyCLICLI, "compile")).not_to include("EXAMPLES")
   end
 end

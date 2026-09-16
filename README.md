@@ -11,14 +11,14 @@ dry-cli prints help as it finds it: no title, no description of the program, no 
 
 ## Before and after
 
-`taxlibris compile -h` with dry-cli alone:
+`my-cli compile -h` with dry-cli alone:
 
 ```text
 Command:
-  taxlibris compile
+  my-cli compile
 
 Usage:
-  taxlibris compile RULES [OUTPUT]
+  my-cli compile RULES [OUTPUT]
 
 Description:
   Compile tax rules
@@ -37,7 +37,7 @@ With `require "dry/cli/help"`:
 
 ```text
 USAGE
-  taxlibris compile RULES [OUTPUT] [OPTIONS]
+  my-cli compile RULES [OUTPUT] [OPTIONS]
 
 DESCRIPTION
   Compile tax rules
@@ -53,6 +53,13 @@ OPTIONS
 ```
 
 Headings are bold and yellow, commands green, options and arguments cyan, and every description wraps to the terminal with a hanging indent.
+
+Although, it is best to show them side by side as a screenshot: this script `rbcheck` is in the `examples` folder of the gem.
+
+| Standard dry-cli Help Screen                    | Require `dry/cli/help`                   |
+| :---------------------------------------------- | :--------------------------------------- |
+| ![original](docs/img/without-dry-cli-help.avif) | ![with](docs/img/with-dry-cli-help.avif) |
+|                                                 |                                          |
 
 ## Installation
 
@@ -71,26 +78,26 @@ require "dry/cli"
 require "dry/cli/help"
 ```
 
-Describe the program in the registry:
+Then make every setting once, in one block, before the CLI runs. Your registry, commands and options stay plain dry-cli: the gem adds nothing to them, so you can add or remove it without touching a command.
 
 ```ruby
-module Taxlibris
+Dry::CLI::Help.configure do
+  title "MyCLI"
+
+  description <<~TEXT
+    This utility does something very important.
+  TEXT
+
+  epilogue "Documentation: https://example.com/my-cli"
+
+  color :auto
+  width :terminal
+  wrap true
+end
+
+module My
   module CLI
     extend Dry::CLI::Registry
-
-    help do
-      title "Taxlibris"
-
-      description <<~TEXT
-        Compile, validate, and evaluate tax rules.
-      TEXT
-
-      epilogue "Documentation: https://example.com/taxlibris"
-
-      color :auto
-      width :terminal
-      wrap true
-    end
 
     register "compile", Compile
     register "validate", Validate
@@ -100,15 +107,15 @@ module Taxlibris
 end
 ```
 
-`taxlibris -h` then prints:
+`my-cli -h` then prints:
 
 ```text
-Taxlibris
+MyCLI
 
-Compile, validate, and evaluate tax rules.
+Compile, validate, and evaluate rules.
 
 USAGE
-  taxlibris COMMAND [OPTIONS]
+  my-cli COMMAND [OPTIONS]
 
 COMMANDS
   compile        Compile tax rules
@@ -120,12 +127,12 @@ OPTIONS
   -h, --help     Show help
   -v, --version  Show version
 
-Documentation: https://example.com/taxlibris
+Documentation: https://example.com/my-cli
 ```
 
 A command reachable as `--version` lists under Options by its dashed names.
 
-Settings for the whole process go through `configure`. A registry's `help` block overrides them:
+A block that takes an argument receives the configuration instead of running against it:
 
 ```ruby
 Dry::CLI::Help.configure do |config|
@@ -134,23 +141,177 @@ Dry::CLI::Help.configure do |config|
 end
 ```
 
-A `help` block that takes an argument receives the configuration instead, so `help { |h| h.title = "Taxlibris" }` works too.
+## Examples
+
+The [`examples`](examples) folder holds three single-file tools built on dry-cli. Each one loads and configures this gem only when you pass `--with-dry-cli-help`, or `-w` for short, so you can run the same command both ways and compare:
+
+```bash
+examples/rbcheck -h                      # dry-cli's own help
+examples/rbcheck -h --with-dry-cli-help  # the same help, through this gem
+```
+
+`examples/rbcheck` has two commands, `version` and `check-ruby-syntax [DIR]`. Condensed:
+
+```ruby
+#!/usr/bin/env ruby
+require "dry/cli"
+
+if [ARGV.delete("--with-dry-cli-help"), ARGV.delete("-w")].any?
+  require "dry/cli/help"
+
+  Dry::CLI::Help.configure do
+    title "RBCheck"
+    description "Small checks for Ruby projects."
+    epilogue "Report bugs at https://example.com/rbcheck/issues"
+  end
+end
+
+module Rbcheck
+  extend Dry::CLI::Registry
+
+  class Version < Dry::CLI::Command
+    desc "Print the version"
+
+    def call(**) = puts("rbcheck 1.0.0")
+  end
+
+  class CheckRubySyntax < Dry::CLI::Command
+    desc "Check every Ruby file under a directory for syntax errors, and report "\
+         "each file that fails to parse with its line number"
+
+    argument :dir, desc: "Directory to scan", default: "."
+    option :exclude, type: :array, desc: "Glob patterns to skip, such as vendor/**"
+    option :quiet, type: :boolean, default: false, aliases: ["-q"],
+           desc: "Print only the files that fail"
+
+    example ["lib # check one directory", "--exclude=vendor/** # skip vendored gems"]
+
+    def call(dir:, quiet:, exclude: [], **)
+      # ... parses every file under dir with Prism ...
+    end
+  end
+
+  register "version", Version, aliases: ["--version", "-v"]
+  register "check-ruby-syntax", CheckRubySyntax
+end
+
+Dry::CLI.new(Rbcheck).call
+```
+
+Every screen below comes from running it in an 80-column terminal.
+
+### `rbcheck -h`
+
+dry-cli alone prints a list of commands and exits 1. Also note the lack of wrapping on the long description.
+
+```text
+Commands:
+  rbcheck check-ruby-syntax [DIR]                 # Check every Ruby file under a directory for syntax errors, and report each file that fails to parse with its line number
+  rbcheck version                                 # Print the version
+```
+
+With this gem in play it exits 0 and prints:
+
+```text
+RB	check
+
+Small checks for Ruby projects.
+
+USAGE
+  rbcheck COMMAND [OPTIONS]
+
+COMMANDS
+  version            Print the version
+  check-ruby-syntax  Check every Ruby file under a directory for syntax errors,
+                     and report each file that fails to parse with its line
+                     number
+
+OPTIONS
+  -h, --help         Show help
+  -v, --version      Print the version
+
+Report bugs at https://example.com/rbcheck/issues
+```
+
+- The title, description and epilogue come from the `configure` block.
+- Commands list in the order they were registered, not alphabetically.
+- The long description wraps to the terminal under its own column.
+- `version` is also reachable as `--version` and `-v`, so it lists under Options too. dry-cli never shows those aliases.
+
+### `rbcheck check-ruby-syntax -h`
+
+dry-cli alone:
+
+```text
+Command:
+  rbcheck check-ruby-syntax
+
+Usage:
+  rbcheck check-ruby-syntax [DIR]
+
+Description:
+  Check every Ruby file under a directory for syntax errors, and report each file that fails to parse with its line number
+
+Arguments:
+  DIR                               # Directory to scan
+
+Options:
+  --exclude=VALUE1,VALUE2,..        # Glob patterns to skip, such as vendor/**
+  --[no-]quiet, -q                  # Print only the files that fail, default: false
+  --help, -h                        # Print this help
+
+Examples:
+  rbcheck check-ruby-syntax lib # check one directory
+  rbcheck check-ruby-syntax --exclude=vendor/** # skip vendored gems
+```
+
+With this gem:
+
+```text
+USAGE
+  rbcheck check-ruby-syntax [DIR] [OPTIONS]
+
+DESCRIPTION
+  Check every Ruby file under a directory for syntax errors, and report each
+  file that fails to parse with its line number
+
+ARGUMENTS
+  DIR                         Directory to scan (default: ".")
+
+OPTIONS
+  --exclude=VALUE1,VALUE2,..  Glob patterns to skip, such as vendor/**
+  -q, --[no-]quiet            Print only the files that fail (default: false)
+  -h, --help                  Show help
+
+EXAMPLES
+  rbcheck check-ruby-syntax lib             check one directory
+  rbcheck check-ruby-syntax --exclude=vendor/**
+                                            skip vendored gems
+```
+
+- The `Command:` section repeats the usage line, so it is gone, and the usage line shows that the command takes options.
+- The argument's default of `"."` shows up; dry-cli leaves it out.
+- Short aliases come first (`-q, --[no-]quiet`), and every description lines up in one column instead of trailing a `#`.
+- Each example's comment moves into a column of its own. An example longer than that column puts its comment on the next line.
+
+In a terminal the headings print bold yellow, usage lines, commands and examples green, arguments and options cyan, and example comments bold black.
+
+`examples/todo` shows nested commands, custom headings and a `styles` block. `examples/deploy` shows a fixed width, a banner above command help, reordered sections and help without a command exiting 0. [`examples/README.md`](examples/README.md) lists what each one demonstrates.
 
 ## Settings
 
-| Setting                       | Values                            | Default         |
-| ------------------------------| --------------------------------- | --------------- |
-| `title`                       | String                            | none            |
-| `description`                 | String                            | none            |
-| `epilogue`                    | String                            | none            |
-| `color`                       | `true`, `false`, `:auto`          | `:auto`         |
-| `wrap`                        | `true`, `false`                   | `true`          |
-| `width`                       | `:terminal`, Integer              | `:terminal`     |
-| `margin`                      | Integer                           | `0`             |
-| `exit_code_without_arguments` | 0 to 255                          | `1`             |
-| `banner_on_subcommands`       | `true`, `false`                   | `false`         |
-| `heading_case`                | `:upcase`, `:capitalize`, `:none` | `:upcase`       |
-| `command_order`               | `:registration`, `:alphabetical`  | `:registration` |
+| Setting                       | Values                           | Default         | What it does                                                                                                              |
+| ----------------------------- | -------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `title`                       | String                           | none            | Prints a bold first line at the top of the top-level help                                                                 |
+| `description`                 | String                           | none            | Prints paragraphs under the title, reflowed to the wrap width                                                             |
+| `epilogue`                    | String                           | none            | Prints paragraphs at the very end of the top-level help                                                                   |
+| `color`                       | `true`, `false`, `:auto`         | `:auto`         | Paints headings, commands, arguments and options; `:auto` paints only a terminal                                          |
+| `wrap`                        | `true`, `false`                  | `true`          | Wraps descriptions with a hanging indent; `false` prints each one on a single line as written                             |
+| `width`                       | `:terminal`, Integer             | `:terminal`     | Sets the column text wraps at; `:terminal` follows the terminal's width                                                   |
+| `margin`                      | Integer                          | `0`             | Keeps that many columns free at the right edge when `width` is `:terminal`                                                |
+| `exit_code_without_arguments` | 0 to 255                         | `1`             | Sets the exit status of `my-cli` or `my-cli db` run with no command; `0` also prints the help to stdout instead of stderr |
+| `banner_on_subcommands`       | `true`, `false`                  | `false`         | Prints the title and description above command help and group listings too, not only above the top-level help             |
+| `command_order`               | `:registration`, `:alphabetical` | `:registration` | Lists commands in the order you registered them, or sorted by name as dry-cli does                                        |
 
 `color :auto` colors a terminal and honors [`NO_COLOR`](https://no-color.org). `width :terminal` reads `COLUMNS`, then the console, then falls back to 80, and `margin` keeps columns free at the right edge.
 
@@ -159,9 +320,8 @@ Running the program with no command prints the top-level help and exits 1, as dr
 ### Headings, sections and groups
 
 ```ruby
-help do
+Dry::CLI::Help.configure do
   heading :commands, "Available commands"
-  heading_case :capitalize
 
   group "Rules", "compile", "validate"
   group "Returns", "evaluate"
@@ -171,7 +331,7 @@ help do
 end
 ```
 
-- `heading` replaces one section's heading text.
+- `heading` replaces one section's heading text. How headings are cased belongs to their style, below.
 - `group` lists commands under a heading of their own, in the order given. Ungrouped commands stay under Commands. A group inside a group names the full path, such as `"db migrate"`.
 - `sections` sets the order; a section left out is hidden. `hide` hides sections without restating the order.
 
@@ -179,14 +339,37 @@ The sections are `banner`, `usage`, `description`, `commands`, `subcommands`, `a
 
 ### Styles
 
+Every element's look is declared together, in one `styles` block inside `configure`:
+
 ```ruby
-help do
-  style :heading, :bold, :bright_blue
-  style :comment            # no styles: print it plain
+Dry::CLI::Help.configure do
+  styles do
+    title           :bold
+    heading         :bold, :yellow, case: :UPPERCASE
+    usage           :green
+    command         :green
+    argument        :cyan
+    option          :cyan
+    example         :green
+    example_comment :bold, :black
+  end
 end
 ```
 
-The styled elements are `title`, `heading`, `command`, `argument`, `option` and `comment`, the last being the part of an example after the first `#` surrounded by spaces, as in `"rules.form # compile one file"`.
+Those are the defaults. Name only the elements you want to change; a line with no styles, such as `example_comment`, prints that element plain.
+
+| Element           | Applies to                                                                                           |
+| ----------------- | ---------------------------------------------------------------------------------------------------- |
+| `title`           | The banner title                                                                                     |
+| `heading`         | Every section and group heading                                                                      |
+| `usage`           | Every usage line, whole                                                                              |
+| `command`         | Command names in a list                                                                              |
+| `argument`        | Argument names                                                                                       |
+| `option`          | Option names                                                                                         |
+| `example`         | The command line of an example                                                                       |
+| `example_comment` | The part of an example after the first `#` surrounded by spaces, as in `"lib # check one directory"` |
+
+`heading` alone takes `case:`, one of `:UPPERCASE`, `:Capitalize`, `:lowercase` or `:as_is`, each written the way it cases. `:Capitalize` raises only the first letter. `heading case: :as_is` with no styles changes the case and keeps the colors.
 
 ### The Colors module
 

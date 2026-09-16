@@ -1,0 +1,108 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# todo: a task list with a nested `tag` group.
+#
+#   examples/todo -h                          # dry-cli's own help
+#   examples/todo -h --with-dry-cli-help      # the same, through dry-cli-help
+#   examples/todo tag -h --with-dry-cli-help  # a group without a command of its own
+#   examples/todo list -h --with-dry-cli-help
+
+ENV["BUNDLE_GEMFILE"] ||= File.expand_path("../Gemfile", __dir__)
+require "bundler/setup"
+require "dry/cli"
+
+# The one configuration block. Without --with-dry-cli-help or -w, dry-cli prints its own help.
+if [ARGV.delete("--with-dry-cli-help"), ARGV.delete("-w")].any?
+  require "dry/cli/help"
+
+  Dry::CLI::Help.configure do
+    title "todo"
+    description <<~TEXT
+      Keep a list of things to do in a plain file, so it diffs well and survives any tool.
+
+      Tasks are numbered in the order they were added. Numbers never change.
+    TEXT
+
+    heading :commands, "What you can do"
+    heading :usage, "How to run it"
+
+    styles do
+      heading :bold, :magenta, case: :Capitalize
+      usage :bold
+      command :bright_green
+      option :bright_cyan
+    end
+  end
+end
+
+module Todo
+  extend Dry::CLI::Registry
+
+  class Add < Dry::CLI::Command
+    desc "Add a task"
+
+    argument :text, type: :array, required: true, desc: "What needs doing"
+    option :due, desc: "Due date, as YYYY-MM-DD"
+    option :priority, values: %w[low normal high], default: "normal", aliases: ["-p"],
+                      desc: "How soon it matters"
+
+    example ["Water the plants", "--due=2026-10-01 -p high File the report"]
+
+    def call(text:, **) = puts("Added: #{text.join(' ')}")
+  end
+
+  class List < Dry::CLI::Command
+    desc "List open tasks, or every task with --all"
+
+    option :all, type: :boolean, default: false, aliases: ["-a"], desc: "Include finished tasks"
+    option :format, values: %w[table json], default: "table", desc: "Output format"
+
+    def call(**) = puts("No tasks yet.")
+  end
+
+  class Done < Dry::CLI::Command
+    desc "Mark a task finished"
+
+    argument :id, required: true, desc: "The task's number"
+
+    def call(id:, **) = puts("Finished task #{id}.")
+  end
+
+  module Tag
+    class Add < Dry::CLI::Command
+      desc "Tag a task"
+
+      argument :id, required: true, desc: "The task's number"
+      argument :tag, required: true, desc: "A single word"
+
+      def call(id:, tag:, **) = puts("Tagged #{id} with #{tag}.")
+    end
+
+    class Remove < Dry::CLI::Command
+      desc "Remove a tag from a task"
+
+      argument :id, required: true, desc: "The task's number"
+      argument :tag, required: true, desc: "The tag to remove"
+
+      def call(id:, tag:, **) = puts("Removed #{tag} from #{id}.")
+    end
+  end
+
+  class Version < Dry::CLI::Command
+    desc "Print the version"
+
+    def call(**) = puts("todo 2.1.0")
+  end
+
+  register "add", Add, aliases: ["a"]
+  register "list", List, aliases: ["ls"]
+  register "done", Done
+  register "tag" do |prefix|
+    prefix.register "add", Tag::Add
+    prefix.register "remove", Tag::Remove, aliases: ["rm"]
+  end
+  register "version", Version, aliases: ["--version"]
+end
+
+Dry::CLI.new(Todo).call

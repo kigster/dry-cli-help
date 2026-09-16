@@ -1,0 +1,72 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# rbcheck: finds Ruby files that do not parse.
+#
+#   examples/rbcheck -h                      # dry-cli's own help
+#   examples/rbcheck -h --with-dry-cli-help  # the same, through dry-cli-help
+#   examples/rbcheck check-ruby-syntax -h --with-dry-cli-help
+#   examples/rbcheck check-ruby-syntax lib   # actually runs
+
+ENV["BUNDLE_GEMFILE"] ||= File.expand_path("../Gemfile", __dir__)
+require "bundler/setup"
+require "dry/cli"
+require "prism"
+
+# The one configuration block. Without --with-dry-cli-help or -w, dry-cli prints its own help.
+if [ARGV.delete("--with-dry-cli-help"), ARGV.delete("-w")].any?
+  require "dry/cli/help"
+
+  Dry::CLI::Help.configure do
+    title "rbcheck"
+    description "Small checks for Ruby projects."
+    epilogue "Report bugs at https://example.com/rbcheck/issues"
+  end
+end
+
+module Rbcheck
+  extend Dry::CLI::Registry
+
+  class Version < Dry::CLI::Command
+    desc "Print the version"
+
+    def call(**) = puts("rbcheck 1.0.0")
+  end
+
+  class CheckRubySyntax < Dry::CLI::Command
+    desc "Check every Ruby file under a directory for syntax errors, and report each file " \
+         "that fails to parse with its line number"
+
+    argument :dir, desc: "Directory to scan", default: "."
+    option :exclude, type: :array, desc: "Glob patterns to skip, such as vendor/**"
+    option :quiet, type: :boolean, default: false, aliases: ["-q"],
+                   desc: "Print only the files that fail"
+
+    example ["lib # check one directory", "--exclude=vendor/** # skip vendored gems"]
+
+    def call(dir:, quiet:, exclude: [], **)
+      failed = ruby_files(dir, exclude).count { !parses?(it, quiet) }
+      exit(1) if failed.positive?
+    end
+
+    private
+
+    def ruby_files(dir, exclude)
+      Dir.glob("**/*.rb", base: dir).sort
+         .reject { |path| exclude.any? { File.fnmatch?(it, path) } }
+         .map { File.join(dir, it) }
+    end
+
+    def parses?(file, quiet)
+      errors = Prism.parse_file(file).errors
+      errors.each { puts "#{file}:#{it.location.start_line}: #{it.message}" }
+      puts "ok  #{file}" if errors.empty? && !quiet
+      errors.empty?
+    end
+  end
+
+  register "version", Version, aliases: ["--version", "-v"]
+  register "check-ruby-syntax", CheckRubySyntax
+end
+
+Dry::CLI.new(Rbcheck).call

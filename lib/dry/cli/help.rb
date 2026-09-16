@@ -19,14 +19,22 @@ module Dry
     # Configurable, wrapped and colored help screens for dry-cli.
     #
     # Requiring this file changes the help every Dry::CLI in the process prints.
-    # Settings come from {.configure} for the whole process, and from a
-    # registry's `help` block for that registry.
+    # Every setting is made once, in {.configure}, so the way dry-cli declares
+    # registries, commands and options stays exactly as dry-cli ships it.
     module Help
       class << self
-        # @yieldparam config [Configuration] the process-wide settings
+        # Make every setting. A block taking an argument receives the
+        # configuration; any other block runs against it.
+        #
+        # @example
+        #   Dry::CLI::Help.configure do
+        #     title "MyCLI"
+        #     styles { heading :bold, :blue }
+        #   end
+        #
         # @return [Configuration]
-        def configure
-          yield config
+        def configure(&block)
+          block.arity == 1 ? yield(config) : config.instance_eval(&block)
           config
         end
 
@@ -40,21 +48,9 @@ module Dry
         def reset!
           @config = nil
         end
-
-        # The settings a registry renders with: its own `help` block over the
-        # process-wide settings. A single command passed to Dry::CLI.new has no
-        # `help` block, so it renders with the process-wide settings alone.
-        #
-        # @param registry [Module, Class, Dry::CLI::Command, nil]
-        # @return [Configuration]
-        def config_for(registry)
-          own = registry.help_config if registry.respond_to?(:help_config)
-          own ? config.merge(own) : config
-        end
       end
     end
   end
 end
 
 Dry::CLI.prepend(Dry::CLI::Help::Integration::CLIMethods)
-Dry::CLI::Registry.include(Dry::CLI::Help::Integration::RegistryMethods)

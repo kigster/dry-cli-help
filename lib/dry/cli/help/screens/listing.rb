@@ -32,8 +32,8 @@ module Dry
           end
 
           def render_usage
-            program = format.paint(ProgramName.call(result.names), :command)
-            section(:usage, ["#{INDENT}#{program} COMMAND [OPTIONS]"])
+            usage = format.paint("#{ProgramName.call(result.names)} COMMAND [OPTIONS]", :usage)
+            section(:usage, ["#{INDENT}#{usage}"])
           end
 
           def render_commands
