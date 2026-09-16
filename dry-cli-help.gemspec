@@ -33,6 +33,6 @@ Gem::Specification.new do |spec|
 
   # The integration overrides Dry::CLI#help and Dry::CLI#spell_checker, and the
   # second one first appeared in 1.1.1.
-  spec.add_dependency "dry-cli", ">= 1.1.1", "< 2"
+  spec.add_dependency "dry-cli"
   spec.add_dependency "pastel", "~> 0.8"
 end
