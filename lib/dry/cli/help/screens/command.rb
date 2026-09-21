@@ -55,10 +55,15 @@ module Dry
 
           # Examples align among themselves: a full command line is longer than
           # any option, and would push every other description off to the right.
+          #
+          # An empty example is how a command says "run me with nothing at
+          # all", and String#split answers [] for it, so `line` is nil and only
+          # the program name is left to print.
           def render_examples
             rows = command.examples.map do |example|
               line, comment = example.split(" # ", 2)
-              Row.new(term: "#{prog_name} #{line.strip}", text: comment&.strip,
+              term = [prog_name, line&.strip].reject { it.nil? || it.empty? }.join(" ")
+              Row.new(term: term, text: comment&.strip,
                       term_style: :example, text_style: :example_comment)
             end
             section(:examples, format.definitions(rows, format.column_for(rows)))

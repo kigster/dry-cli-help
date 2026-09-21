@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+## [0.5.1] - 2026-09-21
+
+- An empty example, `example [""]`, no longer raises `NoMethodError` and takes the whole help screen with it. It prints the program name on its own, which is what a command that runs with no arguments means by it.
+
 ## [0.5.0] - Unreleased
 
 - The `dry-cli` dependency no longer pins a version range; any release satisfies it.
