@@ -188,7 +188,8 @@ module Rbcheck
     option :quiet, type: :boolean, default: false, aliases: ["-q"],
            desc: "Print only the files that fail"
 
-    example ["lib # check one directory", "--exclude=vendor/** # skip vendored gems"]
+    example "lib", "check one directory"
+    example "--exclude=vendor/**", "skip vendored gems"
 
     def call(dir:, quiet:, exclude: [], **)
       # ... parses every file under dir with Prism ...
@@ -260,16 +261,16 @@ Description:
   Check every Ruby file under a directory for syntax errors, and report each file that fails to parse with its line number
 
 Arguments:
-  DIR                               # Directory to scan
+  DIR                                            # Directory to scan
 
 Options:
-  --exclude=VALUE1,VALUE2,..        # Glob patterns to skip, such as vendor/**
-  --[no-]quiet, -q                  # Print only the files that fail, default: false
-  --help, -h                        # Print this help
+  --exclude=VALUE1,VALUE2,..                     # Glob patterns to skip, such as vendor/**
+  --[no-]quiet, -q                               # Print only the files that fail, default: false
+  --help, -h                                     # Print this help
 
 Examples:
-  rbcheck check-ruby-syntax lib # check one directory
-  rbcheck check-ruby-syntax --exclude=vendor/** # skip vendored gems
+  rbcheck check-ruby-syntax lib                  # check one directory
+  rbcheck check-ruby-syntax --exclude=vendor/**  # skip vendored gems
 ```
 
 With this gem:
@@ -420,7 +421,7 @@ The methods are the eight colors `black red green yellow blue magenta cyan white
 
 ## How it works
 
-The gem prepends one module to `Dry::CLI`, overriding the two private methods dry-cli prints help from. It does not replace `Dry::CLI::Banner` or `Dry::CLI::Usage`.
+The gem sets dry-cli's help renderer, with `Dry::CLI.configure { it.help.renderer = Dry::CLI::Help::Integration::Renderer }`. It overrides nothing, and does not replace `Dry::CLI::Banner` or `Dry::CLI::Usage`.
 
 ```mermaid
 ---
@@ -431,21 +432,24 @@ config:
 flowchart TB
     argv["ARGV"] --> cli_call["Dry::CLI#call"]
 
-    cli_call -->|"command found, --help given"| help_method["#help"]
-    cli_call -->|"no command, a group, -h at a level, a typo"| spell_checker["#spell_checker"]
+    cli_call -->|"--help on a command"| command_screen_in["Dry::CLI::Screen (kind: :command)"]
+    cli_call -->|"no command, a group, -h at a level, a typo"| listing_screen_in["Dry::CLI::Screen (kind: :listing)"]
 
-    help_method --> command_screen["Screens::Command"]
-    spell_checker --> listing_screen["Screens::Listing"]
+    command_screen_in --> renderer["Integration::Renderer"]
+    listing_screen_in --> renderer
+
+    renderer --> command_screen["Screens::Command"]
+    renderer --> listing_screen["Screens::Listing"]
 
     command_screen --> formatter["Formatter"]
     listing_screen --> formatter
 
     help_config["Help.configure"] --> formatter
 
-    formatter --> output["stdout or stderr"]
+    formatter --> output["stdout or stderr, by the screen's status"]
 ```
 
-Both methods are `@api private` in dry-cli. `spec/dry/cli/help/dry_cli_contract_spec.rb` asserts every internal the gem reads, so a dry-cli release that moves one fails this suite, naming what moved.
+The renderer reads commands through `Dry::CLI::Tree`, and everything it touches is public dry-cli API. `spec/dry/cli/help/dry_cli_contract_spec.rb` asserts all of it, so a dry-cli release that moves any of it fails this suite, naming what moved. A CLI given settings of its own, `Dry.CLI(registry, config:)`, renders the help those settings name.
 
 ## Development
 

@@ -18,7 +18,8 @@ module Fixtures
       option :force, type: :flag, desc: "Overwrite the output"
       option :only, type: :array, desc: "Compile only these forms"
 
-      example ["rules.form # compile one file", "rules.form build/rules.json"]
+      example "rules.form", "compile one file"
+      example "rules.form build/rules.json"
 
       def call(**); end
     end

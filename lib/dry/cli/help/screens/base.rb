@@ -66,18 +66,24 @@ module Dry
             format.definitions(rows, column)
           end
 
-          # The nodes of one registry level in the configured order, hidden ones left out.
-          def visible(children)
-            shown = children.to_a.reject { |_, node| node.hidden }
-            config.command_order == :alphabetical ? shown.sort_by(&:first) : shown
+          # The nodes under a node, in the configured order, hidden ones left out.
+          #
+          # @param node [Dry::CLI::Tree::Node]
+          # @return [Array<Dry::CLI::Tree::Node>]
+          def visible(node)
+            shown = node.children(hidden: false)
+            config.command_order == :alphabetical ? shown.sort_by(&:name) : shown
           end
 
           # A group registered without a command has no description of its own,
           # so it describes itself by what it contains.
+          #
+          # @param node [Dry::CLI::Tree::Node]
+          # @return [String, nil]
           def describe_node(node)
-            return node.command.description if node.command
+            return node.description if node.command
 
-            names = visible(node.children).map(&:first)
+            names = visible(node).map(&:name)
             "Subcommands: #{names.join(', ')}" unless names.empty?
           end
         end

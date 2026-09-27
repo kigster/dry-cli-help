@@ -4,6 +4,14 @@ source "https://rubygems.org"
 
 gemspec
 
+# dry-cli with public help hooks (kigster/dry-cli#1 to #4), until they are released.
+# DRY_CLI_PATH points at a local checkout instead.
+if ENV["DRY_CLI_PATH"]
+  gem "dry-cli", path: ENV["DRY_CLI_PATH"]
+else
+  gem "dry-cli", github: "kigster/dry-cli", branch: "kig/auto-inject-compatibility"
+end
+
 group :development, :test do
   gem "coverage-badge"
   gem "irb"

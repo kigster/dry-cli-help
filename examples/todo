@@ -47,7 +47,8 @@ module Todo
     option :priority, values: %w[low normal high], default: "normal", aliases: ["-p"],
                       desc: "How soon it matters"
 
-    example ["Water the plants", "--due=2026-10-01 -p high File the report"]
+    example "Water the plants"
+    example "--due=2026-10-01 -p high File the report"
 
     def call(text:, **) = puts("Added: #{text.join(' ')}")
   end

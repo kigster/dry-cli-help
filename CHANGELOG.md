@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+- The gem sets dry-cli's help renderer through `Dry::CLI.configure`, and reads commands through `Dry::CLI::Tree`, instead of prepending a module that overrode two private `Dry::CLI` methods. Help output is unchanged. The override had already broken against dry-cli's `main`, whose `#help` takes `long:` and whose streams are `stdout` and `stderr`.
+- A CLI given settings of its own, `Dry.CLI(registry, config:)`, renders the help those settings name.
+- A group run without a subcommand, such as `mycli db` where `db` is a namespace, now lists its commands through this gem too.
+- Examples follow dry-cli's `example "args", "description"`. One string written the older way, `"args # description"`, is still split at the `#`.
+- Needs dry-cli with the help hooks; the Gemfile takes it from kigster/dry-cli until they are released.
+
 ## [0.5.1] - 2026-09-21
 
 - An empty example, `example [""]`, no longer raises `NoMethodError` and takes the whole help screen with it. It prints the program name on its own, which is what a command that runs with no arguments means by it.

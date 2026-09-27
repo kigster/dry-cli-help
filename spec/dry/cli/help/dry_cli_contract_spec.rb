@@ -1,35 +1,37 @@
 # frozen_string_literal: true
 
-# Everything this gem reads from dry-cli is marked `@api private` there. None of
-# it is a public contract, so this file states the contract instead: a dry-cli
-# release that renames any of it fails here, naming what moved, rather than in
-# a host's help screen.
-RSpec.describe "The dry-cli internals this gem depends on" do
-  it "prints command help from a private Dry::CLI#help(command, prog_name)" do
-    original = Dry::CLI.instance_method(:help).super_method
-
-    expect([original.owner, original.arity]).to eq([Dry::CLI, 2])
+# Everything this gem reads from dry-cli, stated as a contract: a dry-cli release
+# that renames any of it fails here, naming what moved, rather than in a host's
+# help screen. All of it is dry-cli's public API.
+RSpec.describe "The dry-cli API this gem depends on" do
+  it "takes a help renderer through Dry::CLI.configure" do
+    expect(Dry::CLI.config.help).to respond_to(:renderer=)
   end
 
-  it "prints registry help from a private Dry::CLI#spell_checker(result, arguments)" do
-    original = Dry::CLI.instance_method(:spell_checker).super_method
-
-    expect([original.owner, original.arity]).to eq([Dry::CLI, 2])
+  it "hands the renderer a Dry::CLI::Screen" do
+    expect(Dry::CLI::Screen.members).to include(
+      :kind, :reason, :node, :prog_name, :suggestion, :text, :status, :stdout, :stderr
+    )
+    expect(Dry::CLI::Screen.public_instance_methods).to include(:command?, :io, :with)
   end
 
-  it "exposes the readers the overrides call" do
-    expect(%i[kommand out err].all? { Dry::CLI.private_method_defined?(it) }).to be(true)
+  it "describes commands through Dry::CLI::Tree::Node" do
+    readers = %i[name path aliases hidden? command description examples arguments options children]
+
+    expect(readers - Dry::CLI::Tree::Node.public_instance_methods).to be_empty
   end
 
-  it "exposes registry nodes and lookups through readers" do
-    node_readers = %i[parent children aliases hidden command]
+  it "describes options and arguments through Dry::CLI::Tree::Param" do
+    readers = %i[name desc required? default values aliases boolean? flag? array?]
 
-    expect(node_readers - Dry::CLI::CommandRegistry::Node.public_instance_methods).to be_empty
-    expect(%i[names children] - Dry::CLI::CommandRegistry::LookupResult.public_instance_methods)
-      .to be_empty
+    expect(readers - Dry::CLI::Tree::Param.public_instance_methods).to be_empty
   end
 
-  it "suggests a command through Dry::CLI::SpellChecker.call(result, arguments)" do
-    expect(Dry::CLI::SpellChecker.method(:call).arity).to eq(2)
+  it "reaches the IO beneath a stream through Dry::CLI::Stream#raw" do
+    expect(Dry::CLI::Stream.public_instance_methods).to include(:raw)
+  end
+
+  it "exits through the kernel Dry::CLI#call is given" do
+    expect(Dry::CLI.instance_method(:call).parameters).to include([:key, :kernel])
   end
 end
