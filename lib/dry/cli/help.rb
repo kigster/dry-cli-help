@@ -53,4 +53,4 @@ module Dry
   end
 end
 
-Dry::CLI.prepend(Dry::CLI::Help::Integration::CLIMethods)
+Dry::CLI::Help::Integration.install

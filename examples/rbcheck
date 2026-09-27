@@ -42,7 +42,8 @@ module Rbcheck
     option :quiet, type: :boolean, default: false, aliases: ["-q"],
                    desc: "Print only the files that fail"
 
-    example ["lib # check one directory", "--exclude=vendor/** # skip vendored gems"]
+    example "lib", "check one directory"
+    example "--exclude=vendor/**", "skip vendored gems"
 
     def call(dir:, quiet:, exclude: [], **)
       failed = ruby_files(dir, exclude).count { !parses?(it, quiet) }

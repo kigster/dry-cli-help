@@ -33,8 +33,17 @@ RSpec.describe Dry::CLI::Help do
     end
   end
 
-  it "installs itself into dry-cli, and leaves dry-cli's registry DSL alone" do
-    expect(Dry::CLI.ancestors).to include(described_class::Integration::CLIMethods)
+  it "installs itself as dry-cli's help renderer, and leaves dry-cli's registry DSL alone" do
+    expect(Dry::CLI.config.help.renderer).to be(described_class::Integration::Renderer)
     expect(Module.new.extend(Dry::CLI::Registry)).not_to respond_to(:help)
+  end
+
+  it "leaves a CLI given settings of its own to render its own help" do
+    cli = registry { register "run", Class.new(Dry::CLI::Command) { def call(**) = nil } }
+    out = StringIO.new
+    Dry::CLI.new(cli, config: Dry::CLI::Config.new)
+            .call(arguments: %w[run -h], stdout: out, kernel: CLIHelpers::ExitRecorder.new)
+
+    expect(out.string).to start_with("Command:\n  mycli run")
   end
 end

@@ -8,20 +8,20 @@ module Dry
         class Command < Base
           SECTIONS = %i[banner usage description subcommands arguments options examples epilogue].freeze
 
-          # @param command [Class, Dry::CLI::Command]
+          # @param node [Dry::CLI::Tree::Node] the command
           # @param prog_name [String] the program and command path, "mycli db migrate"
           # @param top_level [Boolean] true when the command is the whole CLI,
           #   as with `Dry::CLI.new(SomeCommand)`
-          def initialize(command:, prog_name:, top_level: false, **)
+          def initialize(node:, prog_name:, top_level: false, **)
             super(**)
-            @command = command
+            @node = node
             @prog_name = prog_name
             @top_level = top_level
           end
 
           private
 
-          attr_reader :command, :prog_name
+          attr_reader :node, :prog_name
 
           def banner?
             @top_level || config.banner_on_subcommands
@@ -38,7 +38,7 @@ module Dry
           end
 
           def render_description
-            section(:description, format.paragraph(command.description, indent: INDENT))
+            section(:description, format.paragraph(node.description, indent: INDENT))
           end
 
           def render_subcommands
@@ -56,12 +56,14 @@ module Dry
           # Examples align among themselves: a full command line is longer than
           # any option, and would push every other description off to the right.
           #
-          # An empty example is how a command says "run me with nothing at
-          # all", and String#split answers [] for it, so `line` is nil and only
-          # the program name is left to print.
+          # dry-cli gives each example as its arguments and a description. An
+          # example declared the older way, as `"args # description"` with no
+          # description of its own, is split at the " # ". An empty example is
+          # how a command says "run me with nothing at all", so only the
+          # program name is left to print.
           def render_examples
-            rows = command.examples.map do |example|
-              line, comment = example.split(" # ", 2)
+            rows = node.examples.map do |line, comment|
+              line, comment = line.split(" # ", 2) if comment.to_s.empty?
               term = [prog_name, line&.strip].reject { it.nil? || it.empty? }.join(" ")
               Row.new(term: term, text: comment&.strip,
                       term_style: :example, text_style: :example_comment)
@@ -74,26 +76,27 @@ module Dry
           end
 
           def usage_arguments
-            required = command.required_arguments.map { argument_name(it) }
-            optional = command.optional_arguments.map { "[#{argument_name(it)}]" }
+            required, optional = node.arguments.partition(&:required?)
+            required = required.map { argument_name(it) }
+            optional = optional.map { "[#{argument_name(it)}]" }
             names = [*required, *optional]
             " #{names.join(' ')}" unless names.empty?
           end
 
           def subcommand_rows
-            @subcommand_rows ||= visible(command.subcommands).map do |name, node|
-              Row.new(term: name, text: describe_node(node))
+            @subcommand_rows ||= visible(node).map do |child|
+              Row.new(term: child.name, text: describe_node(child))
             end
           end
 
           def argument_rows
-            @argument_rows ||= command.arguments.map do |argument|
+            @argument_rows ||= node.arguments.map do |argument|
               Row.new(term: argument_name(argument), text: describe(argument), term_style: :argument)
             end
           end
 
           def option_rows
-            @option_rows ||= command.options.map do |option|
+            @option_rows ||= node.options.map do |option|
               Row.new(term: option_term(option), text: describe(option), term_style: :option)
             end
           end
@@ -122,7 +125,7 @@ module Dry
             notes << "required" if param.required?
             notes << "one of: #{param.values.join(', ')}" if param.values
             notes << "default: #{param.default.inspect}" unless param.default.nil?
-            [param.options[:desc], ("(#{notes.join('; ')})" if notes.any?)].compact.join(" ")
+            [param.desc, ("(#{notes.join('; ')})" if notes.any?)].compact.join(" ")
           end
         end
       end

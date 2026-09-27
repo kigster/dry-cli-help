@@ -54,11 +54,9 @@ module Deploy
     option :dry_run, type: :boolean, default: false, aliases: ["-n"],
                      desc: "Print every step without running it"
 
-    example [
-      "staging # the main branch to staging",
-      "production -b release-42 # a release branch",
-      "production --only=web --dry-run # rehearse a web-only deploy"
-    ]
+    example "staging", "the main branch to staging"
+    example "production -b release-42", "a release branch"
+    example "production --only=web --dry-run", "rehearse a web-only deploy"
 
     def call(environment:, branch:, **) = puts("Deploying #{branch} to #{environment}.")
   end

@@ -119,14 +119,20 @@ dry-cli
 
 ### Integration
 
-Requiring `dry/cli/help` changes help output for every `Dry::CLI` in the process. It does not replace `Dry::CLI::Banner` or `Dry::CLI::Usage`. It prepends one module to `Dry::CLI` that overrides two private methods, the only two places dry-cli prints help:
+Requiring `dry/cli/help` changes help output for every `Dry::CLI` in the process that reads dry-cli's process-wide settings. It does not replace `Dry::CLI::Banner` or `Dry::CLI::Usage`, and overrides nothing. It sets dry-cli's help renderer:
 
-| dry-cli method                         | When dry-cli calls it                                      |
-| -------------------------------------- | ---------------------------------------------------------- |
-| `Dry::CLI#help(command, prog_name)`    | `mycli deploy -h`, for any command with a class            |
-| `Dry::CLI#spell_checker(result, argv)` | `mycli`, `mycli -h`, `mycli db` for a group, `mycli bogus` |
+```ruby
+Dry::CLI.configure { it.help.renderer = Dry::CLI::Help::Integration::Renderer }
+```
 
-Both are `@api private` in dry-cli 1.4.1. A spec asserts they exist, so a dry-cli release that renames them fails this gem's suite rather than a host's help screen. `Dry::CLI::Help::Integration` holds the override.
+dry-cli builds a `Dry::CLI::Screen` for every help screen and hands it to the renderer:
+
+| Screen           | When dry-cli builds it                                     |
+| ---------------- | ---------------------------------------------------------- |
+| `kind: :command` | `mycli deploy -h`                                          |
+| `kind: :listing` | `mycli`, `mycli -h`, `mycli db` for a group, `mycli bogus` |
+
+The renderer sets the screen's exit status, which picks the stream, and its text. It reads commands, options and arguments through `Dry::CLI::Tree`. Everything it reads is public dry-cli API, and `spec/dry/cli/help/dry_cli_contract_spec.rb` asserts all of it. A CLI given settings of its own, `Dry.CLI(registry, config:)`, renders the help those settings name.
 
 The gem adds nothing to `Dry::CLI::Registry` or `Dry::CLI::Command`. The DSL a host uses to declare commands, arguments, options and examples is dry-cli's, unchanged, so adding or removing this gem never touches a command definition.
 

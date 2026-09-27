@@ -82,13 +82,14 @@ RSpec.describe Dry::CLI::Help::Screens::Command do
     expect(help_for(cli, "run").lines.map(&:length).max).to be <= 81
   end
 
-  # `example [""]` is how a command says "run me with nothing at all". It used
+  # `example ""` is how a command says "run me with nothing at all". It used
   # to crash the whole help screen: String#split returns [] for an empty
   # string, and the render then called strip on nil.
   it "renders an empty example as the bare command line" do
     cli = registry do
       register "docs", (Class.new(Dry::CLI::Command) do
-        example ["", "-o FILE # write here instead"]
+        example ""
+        example "-o FILE", "write here instead"
         def call(**) = nil
       end)
     end
@@ -98,6 +99,17 @@ RSpec.describe Dry::CLI::Help::Screens::Command do
         mycli docs
         mycli docs -o FILE  write here instead
     TEXT
+  end
+
+  it "splits an example declared as one string with its description after \" # \"" do
+    cli = registry do
+      register "docs", (Class.new(Dry::CLI::Command) do
+        example "-o FILE # write here instead"
+        def call(**) = nil
+      end)
+    end
+
+    expect(help_for(cli, "docs")).to include("  mycli docs -o FILE  write here instead\n")
   end
 
   it "hides examples when asked to" do

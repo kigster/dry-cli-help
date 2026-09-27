@@ -9,18 +9,20 @@ module Dry
         class Listing < Base
           SECTIONS = %i[banner usage commands options epilogue].freeze
 
-          # @param result [Dry::CLI::CommandRegistry::LookupResult] the level to list
-          def initialize(result:, **)
+          # @param node [Dry::CLI::Tree::Node] the level to list
+          # @param prog_name [String] the program and the names leading to the level, "mycli db"
+          def initialize(node:, prog_name:, **)
             super(**)
-            @result = result
+            @node = node
+            @prog_name = prog_name
           end
 
           private
 
-          attr_reader :result
+          attr_reader :node, :prog_name
 
           def top_level?
-            result.names.empty?
+            node.path.empty?
           end
 
           def banner?
@@ -32,7 +34,7 @@ module Dry
           end
 
           def render_usage
-            usage = format.paint("#{ProgramName.call(result.names)} COMMAND [OPTIONS]", :usage)
+            usage = format.paint("#{prog_name} COMMAND [OPTIONS]", :usage)
             section(:usage, ["#{INDENT}#{usage}"])
           end
 
@@ -63,35 +65,24 @@ module Dry
 
           # Commands keyed by full path, so a group can name "db migrate".
           def command_rows
-            @command_rows ||= entries.each_with_object({}) do |(name, node, aliases), rows|
-              next if name.start_with?("-")
+            @command_rows ||= visible(node).each_with_object({}) do |child, rows|
+              next if child.name.start_with?("-")
 
-              term = [name, *aliases.reject { it.start_with?("-") }].join(", ")
-              rows[[*result.names, name].join(" ")] = Row.new(term:, text: describe_node(node))
+              term = [child.name, *child.aliases.reject { it.start_with?("-") }].join(", ")
+              rows[child.path.join(" ")] = Row.new(term:, text: describe_node(child))
             end
           end
 
           # A command reachable as `--version` or `-v` reads as an option, so it
           # lists under Options by its dashed names.
           def option_rows
-            @option_rows ||= entries.filter_map do |name, node, aliases|
-              dashed = [name, *aliases].select { it.start_with?("-") }
+            @option_rows ||= visible(node).filter_map do |child|
+              dashed = [child.name, *child.aliases].select { it.start_with?("-") }
               next if dashed.empty?
 
               term = dashed.sort_by { [it.length, it] }.join(", ")
-              Row.new(term:, text: describe_node(node), term_style: :option)
+              Row.new(term:, text: describe_node(child), term_style: :option)
             end
-          end
-
-          def entries
-            @entries ||= visible(result.children).map do |name, node|
-              [name, node, aliases_of(node)]
-            end
-          end
-
-          # dry-cli files an alias on the parent node, pointing at the child.
-          def aliases_of(node)
-            node.parent.aliases.filter_map { |name, target| name if target.equal?(node) }
           end
         end
       end
