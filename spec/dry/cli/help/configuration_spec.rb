@@ -29,6 +29,7 @@ RSpec.describe Dry::CLI::Help::Configuration do
       margin: 4,
       exit_code_without_arguments: 0,
       banner_on_subcommands: true,
+      command_arguments: true,
       command_order: :alphabetical
     }
 
@@ -42,6 +43,7 @@ RSpec.describe Dry::CLI::Help::Configuration do
       margin: -1,
       exit_code_without_arguments: 256,
       banner_on_subcommands: "no",
+      command_arguments: "yes",
       command_order: :random
     }
 

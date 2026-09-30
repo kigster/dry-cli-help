@@ -72,6 +72,27 @@ module Dry
             config.command_order == :alphabetical ? shown.sort_by(&:first) : shown
           end
 
+          # A command's name as a listing prints it: followed by its arguments
+          # when `command_arguments` is set, "deploy ENVIRONMENT".
+          def command_term(name, node)
+            return name unless config.command_arguments && node.command
+
+            "#{name}#{usage_arguments(node.command)}"
+          end
+
+          # Required arguments bare, optional ones in brackets: " RULES [OUTPUT]".
+          def usage_arguments(command)
+            required = command.required_arguments.map { argument_name(it) }
+            optional = command.optional_arguments.map { "[#{argument_name(it)}]" }
+            names = [*required, *optional]
+            " #{names.join(' ')}" unless names.empty?
+          end
+
+          def argument_name(argument)
+            name = argument.name.to_s.upcase
+            argument.array? ? "#{name}..." : name
+          end
+
           # A group registered without a command has no description of its own,
           # so it describes itself by what it contains.
           def describe_node(node)

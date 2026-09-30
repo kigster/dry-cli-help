@@ -309,18 +309,19 @@ In a terminal the headings print bold yellow, usage lines, commands and examples
 
 The gem offers a compact DSL in the general spirit of Ruby and `dry-rb` in particular, and makes the following methods available within the `configure` block.
 
-| Setting                       | Values                           | Default         | What it does                                                                                                              |
-| ----------------------------- | -------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `title`                       | String                           | none            | Prints the first line of the banner, above the top-level help                                                             |
-| `description`                 | String                           | none            | Prints paragraphs under the title, reflowed to the wrap width                                                             |
-| `epilogue`                    | String                           | none            | Prints paragraphs at the very end of the top-level help                                                                   |
-| `color`                       | `true`, `false`, `:auto`         | `:auto`         | Paints headings, commands, arguments and options; `:auto` paints only a terminal                                          |
-| `wrap`                        | `true`, `false`                  | `true`          | Wraps descriptions with a hanging indent; `false` prints each one on a single line as written                             |
-| `width`                       | `:terminal`, Integer             | `:terminal`     | Sets the column text wraps at; `:terminal` follows the terminal's width                                                   |
-| `margin`                      | Integer                          | `0`             | Keeps that many columns free at the right edge when `width` is `:terminal`                                                |
-| `exit_code_without_arguments` | 0 to 255                         | `1`             | Sets the exit status of `my-cli` or `my-cli db` run with no command; `0` also prints the help to stdout instead of stderr |
-| `banner_on_subcommands`       | `true`, `false`                  | `false`         | Prints the title and description above command help and group listings too, not only above the top-level help             |
-| `command_order`               | `:registration`, `:alphabetical` | `:registration` | Lists commands in the order you registered them, or sorted by name as dry-cli does                                        |
+| Setting                       | Values                           | Default         | What it does                                                                                                                          |
+| ----------------------------- | -------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `title`                       | String                           | none            | Prints the first line of the banner, above the top-level help                                                                         |
+| `description`                 | String                           | none            | Prints paragraphs under the title, reflowed to the wrap width                                                                         |
+| `epilogue`                    | String                           | none            | Prints paragraphs at the very end of the top-level help                                                                               |
+| `color`                       | `true`, `false`, `:auto`         | `:auto`         | Paints headings, commands, arguments and options; `:auto` paints only a terminal                                                      |
+| `wrap`                        | `true`, `false`                  | `true`          | Wraps descriptions with a hanging indent; `false` prints each one on a single line as written                                         |
+| `width`                       | `:terminal`, Integer             | `:terminal`     | Sets the column text wraps at; `:terminal` follows the terminal's width                                                               |
+| `margin`                      | Integer                          | `0`             | Keeps that many columns free at the right edge when `width` is `:terminal`                                                            |
+| `exit_code_without_arguments` | 0 to 255                         | `1`             | Sets the exit status of `my-cli` or `my-cli db` run with no command; `0` also prints the help to stdout instead of stderr             |
+| `banner_on_subcommands`       | `true`, `false`                  | `false`         | Prints the title and description above command help and group listings too, not only above the top-level help                         |
+| `command_arguments`           | `true`, `false`                  | `false`         | Lists each command with its arguments, as in `deploy ENVIRONMENT` and `migrate [FILE]`: required ones bare, optional ones in brackets |
+| `command_order`               | `:registration`, `:alphabetical` | `:registration` | Lists commands in the order you registered them, or sorted by name as dry-cli does                                                    |
 
 `color :auto` colors a terminal and honors [`NO_COLOR`](https://no-color.org). `width :terminal` reads `COLUMNS`, then the console, then falls back to 80, and `margin` keeps columns free at the right edge.
 

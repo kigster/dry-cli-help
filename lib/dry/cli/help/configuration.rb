@@ -67,6 +67,7 @@ module Dry
           margin: ->(value) { value.is_a?(Integer) && !value.negative? },
           exit_code_without_arguments: ->(value) { value.is_a?(Integer) && value.between?(0, 255) },
           banner_on_subcommands: BOOLEAN,
+          command_arguments: BOOLEAN,
           command_order: ->(value) { COMMAND_ORDERS.include?(value) }
         }.freeze
 
@@ -80,6 +81,7 @@ module Dry
           margin: 0,
           exit_code_without_arguments: 1,
           banner_on_subcommands: false,
+          command_arguments: false,
           command_order: :registration
         }.freeze
 

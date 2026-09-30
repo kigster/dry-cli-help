@@ -32,7 +32,7 @@ module Dry
           end
 
           def render_usage
-            lines = ["#{prog_name}#{usage_arguments} [OPTIONS]"]
+            lines = ["#{prog_name}#{usage_arguments(command)} [OPTIONS]"]
             lines << "#{prog_name} COMMAND [OPTIONS]" if subcommand_rows.any?
             section(:usage, lines.map { INDENT + format.paint(it, :usage) })
           end
@@ -73,16 +73,9 @@ module Dry
             subcommand_rows + argument_rows + option_rows
           end
 
-          def usage_arguments
-            required = command.required_arguments.map { argument_name(it) }
-            optional = command.optional_arguments.map { "[#{argument_name(it)}]" }
-            names = [*required, *optional]
-            " #{names.join(' ')}" unless names.empty?
-          end
-
           def subcommand_rows
             @subcommand_rows ||= visible(command.subcommands).map do |name, node|
-              Row.new(term: name, text: describe_node(node))
+              Row.new(term: command_term(name, node), text: describe_node(node))
             end
           end
 
@@ -96,11 +89,6 @@ module Dry
             @option_rows ||= command.options.map do |option|
               Row.new(term: option_term(option), text: describe(option), term_style: :option)
             end
-          end
-
-          def argument_name(argument)
-            name = argument.name.to_s.upcase
-            argument.array? ? "#{name}..." : name
           end
 
           # Short aliases, then the option, then long aliases: "-f, --[no-]force".

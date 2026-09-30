@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- New setting `command_arguments`, off by default. When set, a listing prints each command with its arguments, required ones bare and optional ones in brackets: `completion SHELL`, `migrate [FILE]`. It applies to the commands of a registry level and to the subcommands on a command's own help.
+
 ## [0.5.1] - 2026-09-21
 
 - An empty example, `example [""]`, no longer raises `NoMethodError` and takes the whole help screen with it. It prints the program name on its own, which is what a command that runs with no arguments means by it.

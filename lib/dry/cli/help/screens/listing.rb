@@ -66,7 +66,7 @@ module Dry
             @command_rows ||= entries.each_with_object({}) do |(name, node, aliases), rows|
               next if name.start_with?("-")
 
-              term = [name, *aliases.reject { it.start_with?("-") }].join(", ")
+              term = [command_term(name, node), *aliases.reject { it.start_with?("-") }].join(", ")
               rows[[*result.names, name].join(" ")] = Row.new(term:, text: describe_node(node))
             end
           end

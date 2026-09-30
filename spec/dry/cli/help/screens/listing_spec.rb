@@ -53,6 +53,34 @@ RSpec.describe Dry::CLI::Help::Screens::Listing do
     end
   end
 
+  describe "the arguments of a command" do
+    before { $PROGRAM_NAME = "my-cli" }
+
+    it "are left out of the listing unless asked for" do
+      expect(help_for(Fixtures::SimpleCLI)).to include("  deploy      Deploy the application")
+    end
+
+    it "follow the command's name when asked for, required ones bare and optional ones bracketed" do
+      Dry::CLI::Help.configure { it.command_arguments = true }
+
+      expect(help_for(Fixtures::SimpleCLI)).to include("  deploy ENVIRONMENT  Deploy the application")
+    end
+
+    it "follow a subcommand's name on the help of its parent command" do
+      Dry::CLI::Help.configure { it.command_arguments = true }
+
+      expect(help_for(Fixtures::SimpleCLI, "db")).to include("  migrate [FILE]  Run pending migrations")
+    end
+
+    it "come before the aliases, and leave a group without a command as it was" do
+      Dry::CLI::Help.configure { it.command_arguments = true }
+
+      expect(help_for(Fixtures::HanamiLikeCLI)).to include("  generate, g  Subcommands: migration")
+      expect(help_for(Fixtures::HanamiLikeCLI, "generate")).to include("  migration NAME  Generate a new migration file")
+    end
+
+  end
+
   describe "command groups" do
     before { $PROGRAM_NAME = "my-cli" }
 
