@@ -9,8 +9,10 @@ RSpec.describe Dry::CLI::Help::Integration::CLIMethods do
   let(:out) { StringIO.new }
   let(:err) { StringIO.new }
 
+  # The fork's wrapper, or a stand-in with the same shape where dry-cli 1.4 is loaded.
   def wrapped(io)
-    Struct.new(:raw).new(io)
+    stub_const("Dry::CLI::Stream", Struct.new(:raw)) unless defined?(Dry::CLI::Stream)
+    Dry::CLI::Stream.new(io)
   end
 
   it "reads the fork's stdout and stderr, and writes past its Stream wrapper" do
@@ -36,5 +38,20 @@ RSpec.describe Dry::CLI::Help::Integration::CLIMethods do
 
     expect(cli.send(:help_out)).to be(out)
     expect(cli.send(:help_err)).to be(err)
+  end
+
+  # `io/console` defines IO#raw, which switches a terminal to raw mode and
+  # raises ENOTTY on a pipe. It must never be mistaken for the wrapper's `raw`.
+  it "leaves a plain IO alone even though io/console gives it a raw method" do
+    require "io/console"
+    pipe_read, pipe_write = IO.pipe
+    cli.define_singleton_method(:stdout) { pipe_write }
+    cli.define_singleton_method(:stderr) { pipe_write }
+
+    expect(cli.send(:help_out)).to be(pipe_write)
+    expect(cli.send(:help_err)).to be(pipe_write)
+  ensure
+    pipe_read&.close
+    pipe_write&.close
   end
 end

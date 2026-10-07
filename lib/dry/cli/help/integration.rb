@@ -59,9 +59,11 @@ module Dry
           # The fork wraps each stream in a `Dry::CLI::Stream` that strips ANSI
           # from anything written when it decides the stream has no color. The
           # help screen has already made that decision for the same stream, so
-          # it writes to the IO underneath.
+          # it writes to the IO underneath. The test is the class, not
+          # `respond_to?(:raw)`: `io/console` gives every IO a `raw` of its own,
+          # which puts a terminal into raw mode and raises ENOTTY on a pipe.
           def plain(io)
-            io.respond_to?(:raw) ? io.raw : io
+            defined?(Dry::CLI::Stream) && io.is_a?(Dry::CLI::Stream) ? io.raw : io
           end
 
           def list(result, config, io, status)
