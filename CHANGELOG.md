@@ -1,5 +1,6 @@
 ## [Unreleased]
 
+- Works with the kigster fork of dry-cli as well as dry-cli 1.4: the help integration reads the CLI's streams as `stdout`/`stderr` where those exist and `out`/`err` otherwise, and `help` accepts the fork's `long:` keyword. With `long: true` a command's help prints its `long_desc` when it declares one. The spec helper passes whichever stream keywords `Dry::CLI#call` takes.
 - New setting `command_arguments`, off by default. When set, a listing prints each command with its arguments, required ones bare and optional ones in brackets: `completion SHELL`, `migrate [FILE]`. It applies to the commands of a registry level and to the subcommands on a command's own help.
 
 ## [0.5.1] - 2026-09-21

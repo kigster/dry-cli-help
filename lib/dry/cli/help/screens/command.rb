@@ -12,11 +12,13 @@ module Dry
           # @param prog_name [String] the program and command path, "mycli db migrate"
           # @param top_level [Boolean] true when the command is the whole CLI,
           #   as with `Dry::CLI.new(SomeCommand)`
-          def initialize(command:, prog_name:, top_level: false, **)
+          # @param long [Boolean] show the command's `long_desc` when it has one
+          def initialize(command:, prog_name:, top_level: false, long: false, **)
             super(**)
             @command = command
             @prog_name = prog_name
             @top_level = top_level
+            @long = long
           end
 
           private
@@ -38,7 +40,14 @@ module Dry
           end
 
           def render_description
-            section(:description, format.paragraph(command.description, indent: INDENT))
+            section(:description, format.paragraph(description, indent: INDENT))
+          end
+
+          # The long description for `--help` where the command declares one
+          # (`long_desc`, kigster/dry-cli), otherwise the one-line `desc`.
+          def description
+            long = command.long_description if @long && command.respond_to?(:long_description)
+            long || command.description
           end
 
           def render_subcommands
@@ -60,13 +69,30 @@ module Dry
           # all", and String#split answers [] for it, so `line` is nil and only
           # the program name is left to print.
           def render_examples
-            rows = command.examples.map do |example|
-              line, comment = example.split(" # ", 2)
+            rows = example_pairs.map do |line, comment|
               term = [prog_name, line&.strip].reject { it.nil? || it.empty? }.join(" ")
               Row.new(term: term, text: comment&.strip,
                       term_style: :example, text_style: :example_comment)
             end
             section(:examples, format.definitions(rows, format.column_for(rows)))
+          end
+
+          # Every example as `[args, comment]`. dry-cli 1.4 keeps one string per
+          # example, "args # comment". The kigster fork keeps `[args, description]`
+          # pairs, and a list handed to it in the 1.4 spelling arrives as one pair
+          # holding the list and an empty description.
+          def example_pairs
+            command.examples.flat_map { pairs_of(it) }
+          end
+
+          def pairs_of(example)
+            return [example.split(" # ", 2)] unless example.is_a?(Array)
+
+            text, description = example
+            return text.flat_map { pairs_of(it) } if text.is_a?(Array)
+            return pairs_of(text) if description.nil? || description.empty?
+
+            [[text, description]]
           end
 
           def aligned_rows
