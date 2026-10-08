@@ -16,13 +16,14 @@ module Dry
 
           private
 
-          # dry-cli calls this for `mycli deploy -h`.
-          def help(command, prog_name)
+          # dry-cli calls this for `mycli deploy -h`, and the kigster fork also
+          # for `--help`, with `long: true` so the long description is shown.
+          def help(command, prog_name, long: false)
             screen = Screens::Command.new(
-              command:, prog_name:, top_level: !kommand.nil?,
-              config: Help.config, io: out
+              command:, prog_name:, long:, top_level: !kommand.nil?,
+              config: Help.config, io: help_out
             )
-            out.puts screen.render
+            help_out.puts screen.render
             exit(0)
           end
 
@@ -35,14 +36,34 @@ module Dry
 
             if unmatched.empty?
               status = config.exit_code_without_arguments
-              list(result, config, status.zero? ? out : err, status)
+              list(result, config, status.zero? ? help_out : help_err, status)
             elsif HELP_FLAGS.include?(unmatched.first)
-              list(result, config, out, 0)
+              list(result, config, help_out, 0)
             else
               suggestion = SpellChecker.call(result, arguments)
-              err.puts "#{suggestion}\n\n" if suggestion
-              list(result, config, err, 1)
+              help_err.puts "#{suggestion}\n\n" if suggestion
+              list(result, config, help_err, 1)
             end
+          end
+
+          # dry-cli 1.4 holds its streams as `out` and `err`; the kigster fork
+          # renamed them `stdout` and `stderr`. Both are supported.
+          def help_out
+            plain(respond_to?(:stdout, true) ? stdout : out)
+          end
+
+          def help_err
+            plain(respond_to?(:stderr, true) ? stderr : err)
+          end
+
+          # The fork wraps each stream in a `Dry::CLI::Stream` that strips ANSI
+          # from anything written when it decides the stream has no color. The
+          # help screen has already made that decision for the same stream, so
+          # it writes to the IO underneath. The test is the class, not
+          # `respond_to?(:raw)`: `io/console` gives every IO a `raw` of its own,
+          # which puts a terminal into raw mode and raises ENOTTY on a pipe.
+          def plain(io)
+            defined?(Dry::CLI::Stream) && io.is_a?(Dry::CLI::Stream) ? io.raw : io
           end
 
           def list(result, config, io, status)

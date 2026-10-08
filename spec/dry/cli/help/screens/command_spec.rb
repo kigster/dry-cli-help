@@ -105,4 +105,43 @@ RSpec.describe Dry::CLI::Help::Screens::Command do
 
     expect(help_for(Fixtures::MyCLICLI, "compile")).not_to include("EXAMPLES")
   end
+
+  describe "long help" do
+    def screen(long:)
+      cmd = command do
+        desc "Compile one file"
+        define_singleton_method(:long_description) { "Compile one file, and say why each line was kept." }
+      end
+      described_class.new(command: cmd, prog_name: "mycli compile", long:,
+                          config: Dry::CLI::Help.config, io: StringIO.new).render
+    end
+
+    it "prints the long description when asked for it" do
+      expect(screen(long: true)).to include("say why each line was kept")
+    end
+
+    it "prints the one-line description otherwise" do
+      text = screen(long: false)
+      expect(text).to include("Compile one file\n")
+      expect(text).not_to include("say why")
+    end
+  end
+
+  # kigster/dry-cli stores `example "args", "description"` as a pair, and a list
+  # written the dry-cli 1.4 way as one pair holding the list.
+  it "renders the kigster fork's example pairs" do
+    cmd = command do
+      desc "Build"
+      define_singleton_method(:examples) do
+        [["build", "Compile everything"], [["one.form # one file", "two.form"], ""], ["three.form", nil]]
+      end
+    end
+    text = described_class.new(command: cmd, prog_name: "mycli build",
+                               config: Dry::CLI::Help.config, io: StringIO.new).render
+
+    expect(text).to match(/^  mycli build build +Compile everything$/)
+    expect(text).to match(/^  mycli build one\.form +one file$/)
+    expect(text).to match(/^  mycli build two\.form$/)
+    expect(text).to match(/^  mycli build three\.form$/)
+  end
 end

@@ -5,10 +5,13 @@
 # release that renames any of it fails here, naming what moved, rather than in
 # a host's help screen.
 RSpec.describe "The dry-cli internals this gem depends on" do
-  it "prints command help from a private Dry::CLI#help(command, prog_name)" do
+  # dry-cli 1.4 declares `help(command, prog_name)`; the kigster fork adds
+  # `long:`, which makes the arity -3.
+  it "prints command help from a private Dry::CLI#help(command, prog_name, long: false)" do
     original = Dry::CLI.instance_method(:help).super_method
 
-    expect([original.owner, original.arity]).to eq([Dry::CLI, 2])
+    expect(original.owner).to eq(Dry::CLI)
+    expect([2, -3]).to include(original.arity)
   end
 
   it "prints registry help from a private Dry::CLI#spell_checker(result, arguments)" do
@@ -18,7 +21,10 @@ RSpec.describe "The dry-cli internals this gem depends on" do
   end
 
   it "exposes the readers the overrides call" do
-    expect(%i[kommand out err].all? { Dry::CLI.private_method_defined?(it) }).to be(true)
+    defined = ->(names) { names.all? { Dry::CLI.private_method_defined?(it) } }
+
+    expect(defined[%i[kommand]]).to be(true)
+    expect(defined[%i[out err]] || defined[%i[stdout stderr]]).to be(true)
   end
 
   it "exposes registry nodes and lookups through readers" do

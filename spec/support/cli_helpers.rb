@@ -12,11 +12,17 @@ module CLIHelpers
     err = StringIO.new
     status = 0
     begin
-      Dry::CLI.new(target).call(arguments:, out:, err:)
+      Dry::CLI.new(target).call(arguments:, **streams(out, err))
     rescue SystemExit => e
       status = e.status
     end
     Run.new(status:, out: out.string, err: err.string)
+  end
+
+  # dry-cli 1.4 takes `out:` and `err:`; the kigster fork `stdout:` and `stderr:`.
+  def streams(out, err)
+    names = Dry::CLI.instance_method(:call).parameters.map(&:last)
+    names.include?(:stdout) ? { stdout: out, stderr: err } : { out:, err: }
   end
 
   # A registry built for one example, so its help block cannot leak into another.
