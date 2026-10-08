@@ -132,7 +132,49 @@ OPTIONS
 Documentation: https://example.com/my-cli
 ```
 
-A command reachable as `--version` lists under Options by its dashed names. Commands marked `hidden: true` in the registry stay out of every list, and a non-dashed alias prints next to its command, as in `build, b`.
+A command reachable as `--version` lists under Options by its dashed names. Commands marked `hidden: true` in the registry stay out of every list unless `--help-include-hidden` asks for them, and a non-dashed alias prints next to its command, as in `build, b`.
+
+### Hidden commands and options
+
+dry-cli hides a command registered with `hidden: true`. This gem adds the same for options: declare one with `hidden: true` and plain help leaves it out. dry-cli's parser ignores the key, so the option still works.
+
+```ruby
+class Deploy < Dry::CLI::Command
+  desc "Deploy the application"
+  option :force, type: :boolean, aliases: ["-f"], desc: "Skip confirmation"
+  option :trace, type: :boolean, default: false, hidden: true, desc: "Print every step"
+end
+
+register "deploy", Deploy
+register "console", Console, hidden: true
+```
+
+`--help-include-hidden` prints help with every hidden command and option listed and marked. It works anywhere `-h` does, before or after the command's name, and no help screen lists it.
+
+```text
+$ my-cli --help-include-hidden
+USAGE
+  my-cli COMMAND [OPTIONS]
+
+COMMANDS
+  deploy      Deploy the application
+  console     Open a console on a server (hidden)
+
+OPTIONS
+  -h, --help  Show help
+
+$ my-cli deploy --help-include-hidden
+USAGE
+  my-cli deploy [OPTIONS]
+
+DESCRIPTION
+  Deploy the application
+
+OPTIONS
+  -f, --[no-]force  Skip confirmation
+  --[no-]trace      Print every step (hidden; default: false)
+  -h, --help        Show help
+```
 
 A block that takes an argument receives the configuration instead of running against it:
 

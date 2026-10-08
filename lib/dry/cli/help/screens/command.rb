@@ -111,9 +111,13 @@ module Dry
             end
           end
 
+          # An option declared `hidden: true` lists only when hidden ones are asked for.
           def option_rows
-            @option_rows ||= command.options.map do |option|
-              Row.new(term: option_term(option), text: describe(option), term_style: :option)
+            @option_rows ||= command.options.filter_map do |option|
+              hidden = option.options.fetch(:hidden, false)
+              next if hidden && !include_hidden?
+
+              Row.new(term: option_term(option), text: describe(option, hidden:), term_style: :option)
             end
           end
 
@@ -131,8 +135,9 @@ module Dry
           end
 
           # The description, then what a reader needs to use the value.
-          def describe(param)
+          def describe(param, hidden: false)
             notes = []
+            notes << "hidden" if hidden
             notes << "required" if param.required?
             notes << "one of: #{param.values.join(', ')}" if param.values
             notes << "default: #{param.default.inspect}" unless param.default.nil?

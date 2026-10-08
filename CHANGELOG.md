@@ -1,5 +1,8 @@
 ## [Unreleased]
 
+## [0.6.0] - Unreleased
+
+- `--help-include-hidden` prints help that also lists hidden commands and options, each marked `(hidden)`. An option is hidden when declared with `hidden: true`, which dry-cli keeps and its parser ignores; plain help leaves it out. The flag works before or after a command's name and never appears in help itself.
 - Works with the kigster fork of dry-cli as well as dry-cli 1.4: the help integration reads the CLI's streams as `stdout`/`stderr` where those exist and `out`/`err` otherwise, and `help` accepts the fork's `long:` keyword. With `long: true` a command's help prints its `long_desc` when it declares one. The spec helper passes whichever stream keywords `Dry::CLI#call` takes.
 - New setting `command_arguments`, off by default. When set, a listing prints each command with its arguments, required ones bare and optional ones in brackets: `completion SHELL`, `migrate [FILE]`. It applies to the commands of a registry level and to the subcommands on a command's own help.
 

@@ -17,8 +17,11 @@ module Dry
           # @param config [Configuration]
           # @param io [IO] where the screen prints
           # @param terminal_width [Integer]
-          def initialize(config:, io:, terminal_width: Terminal.width)
+          # @param include_hidden [Boolean] list hidden commands and options too,
+          #   as `--help-include-hidden` asks
+          def initialize(config:, io:, terminal_width: Terminal.width, include_hidden: false)
             @config = config
+            @include_hidden = include_hidden
             @format = Formatter.new(config, io, terminal_width:)
           end
 
@@ -66,9 +69,15 @@ module Dry
             format.definitions(rows, column)
           end
 
-          # The nodes of one registry level in the configured order, hidden ones left out.
+          def include_hidden?
+            @include_hidden
+          end
+
+          # The nodes of one registry level in the configured order, hidden
+          # ones left out unless asked for.
           def visible(children)
-            shown = children.to_a.reject { |_, node| node.hidden }
+            shown = children.to_a
+            shown = shown.reject { |_, node| node.hidden } unless include_hidden?
             config.command_order == :alphabetical ? shown.sort_by(&:first) : shown
           end
 
@@ -93,9 +102,15 @@ module Dry
             argument.array? ? "#{name}..." : name
           end
 
+          # A hidden node, listed only when asked for, says so after its description.
+          def describe_node(node)
+            text = node_description(node)
+            node.hidden ? [text, "(hidden)"].compact.join(" ") : text
+          end
+
           # A group registered without a command has no description of its own,
           # so it describes itself by what it contains.
-          def describe_node(node)
+          def node_description(node)
             return node.command.description if node.command
 
             names = visible(node.children).map(&:first)

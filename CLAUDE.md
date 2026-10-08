@@ -49,19 +49,19 @@ Inside `module Dry`, an unqualified constant resolves there first: a bare `Struc
 
 ## Architecture
 
-| File                                  | Role                                                                               |
-| ------------------------------------- | ---------------------------------------------------------------------------------- |
-| `lib/dry/cli/help.rb`                 | Entry point: `configure`, `config`, `reset!`, and the line that installs the gem   |
-| `lib/dry/cli/help/integration.rb`     | The only code that touches dry-cli: overrides `Dry::CLI#help` and `#spell_checker` |
-| `lib/dry/cli/help/configuration.rb`   | Every setting, its validation, the DSL, and the `styles` block                     |
-| `lib/dry/cli/help/screens/base.rb`    | What every screen shares: section order, banner, epilogue, the description column  |
-| `lib/dry/cli/help/screens/listing.rb` | Top-level and group help: `mycli`, `mycli -h`, `mycli db`                          |
-| `lib/dry/cli/help/screens/command.rb` | One command's help: `mycli deploy -h`                                              |
-| `lib/dry/cli/help/formatter.rb`       | Headings, paragraphs, aligned definition lists, painting                           |
-| `lib/dry/cli/help/text.rb`            | Paragraph reflow and word wrap                                                     |
-| `lib/dry/cli/help/terminal.rb`        | Terminal width                                                                     |
-| `lib/dry/cli/help/colors.rb`          | The public `Colors` module                                                         |
-| `examples/`                           | `rbcheck`, `todo`, `deploy`: runnable CLIs, with the gem only under `-w`           |
+| File                                  | Role                                                                                                             |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `lib/dry/cli/help.rb`                 | Entry point: `configure`, `config`, `reset!`, and the line that installs the gem                                 |
+| `lib/dry/cli/help/integration.rb`     | The only code that touches dry-cli: overrides `Dry::CLI#help`, `#spell_checker` and the two `#perform_*` methods |
+| `lib/dry/cli/help/configuration.rb`   | Every setting, its validation, the DSL, and the `styles` block                                                   |
+| `lib/dry/cli/help/screens/base.rb`    | What every screen shares: section order, banner, epilogue, the description column                                |
+| `lib/dry/cli/help/screens/listing.rb` | Top-level and group help: `mycli`, `mycli -h`, `mycli db`                                                        |
+| `lib/dry/cli/help/screens/command.rb` | One command's help: `mycli deploy -h`                                                                            |
+| `lib/dry/cli/help/formatter.rb`       | Headings, paragraphs, aligned definition lists, painting                                                         |
+| `lib/dry/cli/help/text.rb`            | Paragraph reflow and word wrap                                                                                   |
+| `lib/dry/cli/help/terminal.rb`        | Terminal width                                                                                                   |
+| `lib/dry/cli/help/colors.rb`          | The public `Colors` module                                                                                       |
+| `examples/`                           | `rbcheck`, `todo`, `deploy`: runnable CLIs, with the gem only under `-w`                                         |
 
 Rules that hold this shape together:
 

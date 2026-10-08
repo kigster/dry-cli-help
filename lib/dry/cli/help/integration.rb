@@ -6,22 +6,56 @@ module Dry
       # The only code that touches dry-cli. Everything else renders.
       module Integration
         # Prepended to Dry::CLI. Overrides the two private methods dry-cli
-        # prints help from, and nothing else.
+        # prints help from, and the two it dispatches through, and nothing else.
         #
-        # Both are `@api private` in dry-cli, which is why the suite asserts they
-        # exist: a dry-cli release that renames them fails this gem's specs
+        # All four are `@api private` in dry-cli, which is why the suite asserts
+        # they exist: a dry-cli release that renames them fails this gem's specs
         # rather than a host's help screen.
         module CLIMethods
           HELP_FLAGS = %w[-h --help].freeze
 
+          # Asks for help that also lists hidden commands and options. No help
+          # screen lists the flag itself.
+          INCLUDE_HIDDEN_FLAG = "--help-include-hidden"
+
           private
+
+          # dry-cli's `call` hands the arguments to one of these two. They are
+          # hooked rather than `call`, whose keywords differ between dry-cli 1.4
+          # and the kigster fork.
+          def perform_command(arguments)
+            super(without_include_hidden_flag(arguments))
+          end
+
+          def perform_registry(arguments)
+            super(without_include_hidden_flag(arguments))
+          end
+
+          # dry-cli would reject the flag as an unknown option, so it is taken
+          # out of the arguments before dry-cli sees them. A `--help` goes last
+          # in its place, unless one is there already, so the flag works before
+          # the command's name as well as after it.
+          #
+          # Everything after `--` belongs to the command, flags included.
+          def without_include_hidden_flag(arguments)
+            @help_include_hidden = false
+            options = arguments.take_while { it != "--" }
+            index = options.index(INCLUDE_HIDDEN_FLAG)
+            return arguments unless index
+
+            @help_include_hidden = true
+            rest = arguments.dup
+            rest.delete_at(index)
+            rest.insert(options.length - 1, "--help") unless options.intersect?(HELP_FLAGS)
+            rest
+          end
 
           # dry-cli calls this for `mycli deploy -h`, and the kigster fork also
           # for `--help`, with `long: true` so the long description is shown.
           def help(command, prog_name, long: false)
             screen = Screens::Command.new(
               command:, prog_name:, long:, top_level: !kommand.nil?,
-              config: Help.config, io: help_out
+              config: Help.config, io: help_out, include_hidden: help_include_hidden?
             )
             help_out.puts screen.render
             exit(0)
@@ -66,8 +100,12 @@ module Dry
             defined?(Dry::CLI::Stream) && io.is_a?(Dry::CLI::Stream) ? io.raw : io
           end
 
+          def help_include_hidden?
+            @help_include_hidden
+          end
+
           def list(result, config, io, status)
-            io.puts Screens::Listing.new(result:, config:, io:).render
+            io.puts Screens::Listing.new(result:, config:, io:, include_hidden: help_include_hidden?).render
             exit(status)
           end
         end
