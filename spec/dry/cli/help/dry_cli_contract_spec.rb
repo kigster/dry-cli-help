@@ -35,6 +35,22 @@ RSpec.describe "The dry-cli internals this gem depends on" do
       .to be_empty
   end
 
+  it "dispatches through private Dry::CLI#perform_command and #perform_registry(arguments)" do
+    %i[perform_command perform_registry].each do |name|
+      original = Dry::CLI.instance_method(name).super_method
+
+      expect([original.owner, original.arity]).to eq([Dry::CLI, 1])
+    end
+  end
+
+  # dry-cli has no hidden options. A command declares one as `hidden: true`,
+  # which dry-cli keeps in `options` and its parser never reads.
+  it "keeps an option's undeclared settings in Dry::CLI::Option#options" do
+    command = Class.new(Dry::CLI::Command) { option :trace, type: :boolean, hidden: true }
+
+    expect(command.options.first.options).to include(hidden: true)
+  end
+
   it "suggests a command through Dry::CLI::SpellChecker.call(result, arguments)" do
     expect(Dry::CLI::SpellChecker.method(:call).arity).to eq(2)
   end
