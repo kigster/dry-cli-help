@@ -9,7 +9,7 @@ module Dry
   # inherits from Object, so an empty reopening is compatible either way.
   class CLI
     module Help
-      VERSION = "0.5.1"
+      VERSION = "0.6.0"
     end
   end
 end
